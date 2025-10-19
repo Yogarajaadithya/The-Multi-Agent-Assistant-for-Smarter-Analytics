@@ -1,0 +1,13 @@
+# Frontend artifacts
+frontend-repo/node_modules/
+frontend-repo/dist/
+frontend-repo/.vite/
+
+# Backend artifacts
+backend-repo/.venv/
+backend-repo/__pycache__/
+
+# IDE / OS junk
+.DS_Store
+Thumbs.db
+*.log
