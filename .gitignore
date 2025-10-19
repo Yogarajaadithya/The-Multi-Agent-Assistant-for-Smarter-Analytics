@@ -5,7 +5,14 @@ frontend-repo/.vite/
 
 # Backend artifacts
 backend-repo/.venv/
-backend-repo/__pycache__/
+backend-repo/venv/
+backend-repo/venv-py311/
+
+# Python cache files
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
 # IDE / OS junk
 .DS_Store

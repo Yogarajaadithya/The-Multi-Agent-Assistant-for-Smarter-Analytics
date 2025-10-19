@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { XMarkIcon, Bars3Icon, MagnifyingGlassIcon, TrashIcon } from '@heroicons/react/24/outline';
-import AgentActivity from '../components/AgentActivity';
-import Tabs from '../components/Tabs';
 import CodeBlock from '../components/CodeBlock';
-import { analyze, AnalyzeResponse, EXAMPLE_PROMPTS, HistoryItem, Message } from '../lib/api';
+import { EXAMPLE_PROMPTS } from '../lib/api';
+import { sendChat } from '../api/client';
 
 const STORAGE_KEY = 'analytics-history';
 
@@ -13,7 +12,7 @@ export default function AnalyticsAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historySearch, setHistorySearch] = useState('');
-  const [currentResponse, setCurrentResponse] = useState<AnalyzeResponse | null>(null);
+  // Removed currentResponse state
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,9 +36,9 @@ export default function AnalyticsAssistant() {
     setInputValue('');
     setIsLoading(true);
 
-    const newMessage: Message = {
+    const newMessage = {
       id: Date.now().toString(),
-      role: 'user',
+      role: 'user' as const,
       text: query,
       ts: new Date().toISOString()
     };
@@ -47,19 +46,18 @@ export default function AnalyticsAssistant() {
     setMessages(prev => [...prev, newMessage]);
 
     try {
-      const response = await analyze(query);
-      setCurrentResponse(response);
+      const response = await sendChat([{ role: 'user', content: query }]);
 
-      const assistantMessage: Message = {
+      const assistantMessage = {
         id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        text: response.insights?.text || 'Analysis complete.',
+        role: 'assistant' as const,
+        text: response.content,
         ts: new Date().toISOString()
       };
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      const historyItem: HistoryItem = {
+      const historyItem = {
         id: newMessage.id,
         prompt: query,
         ts: newMessage.ts
@@ -67,13 +65,13 @@ export default function AnalyticsAssistant() {
 
       saveHistory([historyItem, ...history].slice(0, 10));
     } catch (error) {
-      console.error('Analysis failed:', error);
+      console.error('Chat failed:', error);
       setMessages(prev => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          text: 'Sorry, the analysis failed. Please try again.',
+          role: 'assistant' as const,
+          text: 'Sorry, the chat failed. Please try again.',
           ts: new Date().toISOString()
         }
       ]);
@@ -340,19 +338,7 @@ export default function AnalyticsAssistant() {
               )}
             </div>
 
-            {/* Agent Activity */}
-            {currentResponse && (
-              <div className="mb-4">
-                <AgentActivity activity={currentResponse.activity} />
-              </div>
-            )}
-
-            {/* Result Tabs */}
-            {currentResponse && (
-              <div className="mb-4 bg-gray-900/50 rounded-xl p-4 border border-gray-800">
-                <Tabs tabs={renderTabContent().filter(tab => tab.content)} />
-              </div>
-            )}
+            {/* Agent Activity and Result Tabs removed */}
 
             {/* Input area */}
             <div className="flex-none bg-gray-900/50 rounded-xl p-4 border border-gray-800">
