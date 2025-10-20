@@ -1,3 +1,4 @@
+import re
 from typing import List, Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -27,6 +28,12 @@ class ChatResponse(BaseModel):
 router = APIRouter()
 
 
+def strip_think_tags(content: str) -> str:
+    """Remove <think>...</think> sections that some models emit."""
+    cleaned = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    return cleaned.strip()
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     req: ChatRequest,
@@ -43,6 +50,7 @@ async def chat(
             stream=False,  # set True only if you implement streaming on frontend
         )
         content = completion.choices[0].message.content or ""
+        content = strip_think_tags(content)
         return ChatResponse(content=content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

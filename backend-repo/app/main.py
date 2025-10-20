@@ -13,7 +13,12 @@ load_dotenv(dotenv_path=env_path)
 
 settings = get_settings()
 
-app = FastAPI(title="Analytics Assistant API")
+app = FastAPI(
+    title="Analytics Assistant API",
+    openapi_url=f"{settings.api_prefix}/openapi.json",
+    docs_url=f"{settings.api_prefix}/docs",
+    redoc_url=f"{settings.api_prefix}/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,
