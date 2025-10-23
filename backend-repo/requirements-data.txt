@@ -1,0 +1,6 @@
+# Additional requirements for data loading script
+pandas>=2.0.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+openpyxl>=3.0.0  # For Excel file support
+# pyarrow>=10.0.0  # For Parquet file support (optional, requires CMake)

@@ -1,0 +1,11 @@
+id,name,email,age,city,purchase_amount,purchase_date
+1,John Doe,john.doe@email.com,35,New York,1250.50,2024-01-15
+2,Jane Smith,jane.smith@email.com,28,Boston,890.25,2024-01-16
+3,Bob Johnson,bob.johnson@email.com,42,Chicago,2100.00,2024-01-17
+4,Alice Williams,alice.w@email.com,31,San Francisco,1575.75,2024-01-18
+5,Charlie Brown,charlie.b@email.com,29,Seattle,950.00,2024-01-19
+6,Diana Prince,diana.p@email.com,38,Los Angeles,3200.50,2024-01-20
+7,Eve Davis,eve.davis@email.com,33,Miami,1825.00,2024-01-21
+8,Frank Miller,frank.m@email.com,45,Denver,1450.25,2024-01-22
+9,Grace Lee,grace.lee@email.com,27,Austin,775.50,2024-01-23
+10,Henry Wilson,henry.w@email.com,36,Portland,2050.00,2024-01-24
