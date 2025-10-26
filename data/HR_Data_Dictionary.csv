@@ -1,0 +1,36 @@
+Table Name,Table Description,Column Name,Column Description,Column Data Type,Column Usage, is_categorical
+hr_employee_attrition,HR analytics data collection for employee attrition,age,Employee's age in years.,int64,"Demographic analysis, retention trends.",FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,attrition,Indicates whether the employee left the company (Yes/No).,object,Predictive modeling for employee turnover.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,businesstravel,Frequency of travel for business purposes.,object,Impact of travel on attrition and performance.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,dailyrate,Daily salary rate of the employee.,int64,Salary distribution analysis.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,department,Department where the employee works.,object,Department-wise attrition and performance analysis.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,distancefromhome,Distance between the employee's home and workplace.,int64,Effect of commute on employee satisfaction.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,education,Employee's education level (1-5).,int64,Education level impact on job roles and salaries.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,educationfield,Field of study of the employee.,object,Field of education and job alignment analysis.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,employeecount,Total employees (constant value).,int64,"Constant value, not useful for analysis.",FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,employeenumber,Unique identifier for each employee.,int64,"Unique identifier, not for analytics.",FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,environmentsatisfaction,Satisfaction with the work environment (1-4).,int64,Employee satisfaction and retention modeling.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,gender,Employee's gender (Male/Female).,object,Diversity analysis in hiring and promotions.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,hourlyrate,Hourly wage rate of the employee.,int64,Compensation benchmarking.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,jobinvolvement,Level of job involvement (1-4).,int64,Impact of job involvement on performance.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,joblevel,Position level within the organization (1-5).,int64,Hierarchy and promotion trend analysis.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,jobrole,Specific job title of the employee.,object,Role-based attrition and performance study.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,jobsatisfaction,Employee's job satisfaction level (1-4).,int64,Employee engagement and satisfaction analysis.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,maritalstatus,Employee's marital status (Single/Married/Divorced).,object,Effect of marital status on work-life balance.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,monthlyincome,Monthly salary of the employee.,int64,Salary structure analysis.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,monthlyrate,Monthly billing rate for the employee.,int64,Comparison of salaries across employees.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,numcompaniesworked,Number of companies the employee has worked at.,int64,Career mobility and attrition study.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,over18,Indicates if the employee is over 18 (constant value).,object,"Constant value, not useful for analysis.",TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,overtime,Indicates if the employee works overtime (Yes/No).,object,Impact of overtime on performance and attrition.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,percentsalaryhike,Percentage increase in salary.,int64,Salary increments and performance correlation.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,performancerating,Employee's performance rating (1-4).,int64,Employee performance evaluation.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,relationshipsatisfaction,Satisfaction with relationships at work (1-4).,int64,Interpersonal relationships at the workplace.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,standardhours,Standard working hours (constant value of 80).,int64,"Constant value, not useful for analysis.",FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,stockoptionlevel,Stock option level granted to the employee (0-3).,int64,Stock options and employee motivation analysis.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,totalworkingyears,Total years of work experience.,int64,Experience and salary correlation study.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,trainingtimeslastyear,Number of training sessions attended last year.,int64,Training impact on employee performance.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,worklifebalance,Work-life balance rating (1-4).,int64,Employee work-life balance assessment.,TRUE
+hr_employee_attrition,HR analytics data collection for employee attrition,yearsatcompany,Years spent at the company.,int64,Employee tenure and loyalty study.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,yearsincurrentrole,Years spent in the current role.,int64,Stability in roles and career growth.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,yearssincelastpromotion,Years since last promotion.,int64,Promotion trends analysis.,FALSE
+hr_employee_attrition,HR analytics data collection for employee attrition,yearswithcurrmanager,Years spent with the current manager.,int64,Impact of manager-employee relationships.,FALSE
