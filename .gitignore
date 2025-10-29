@@ -18,3 +18,16 @@ backend-repo/venv-py311/
 .DS_Store
 Thumbs.db
 *.log
+
+# Jupyter Notebooks with API keys (test/development notebooks)
+test_tts_vis.ipynb
+TTS.ipynb
+test_notebook/
+
+# HTML exports from visualizations
+*.html
+
+# Environment files with secrets
+.env
+.env.local
+*.key
