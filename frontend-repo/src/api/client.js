@@ -29,3 +29,34 @@ export async function sendChat(messages) {
     throw error;
   }
 }
+
+// New function for analytics queries using the Text-to-SQL agent
+export async function sendAnalyticsQuery(question) {
+  console.log('Sending analytics query to:', `${BACKEND_BASE_URL}/query`);
+  console.log('Query:', question);
+  
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/query`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ question }),
+    });
+    
+    console.log('Response status:', res.status);
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Error response:', errorText);
+      throw new Error(`Backend error: ${res.status} - ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log('Response data:', data);
+    return data; // { sql, data, visualization, message }
+  } catch (error) {
+    console.error('Request failed:', error);
+    throw error;
+  }
+}

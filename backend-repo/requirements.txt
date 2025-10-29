@@ -3,3 +3,19 @@ uvicorn>=0.22.0
 pydantic>=2.0.0
 openai>=1.40.0
 python-dotenv
+
+# Database & SQL
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
+
+# LangChain
+langchain>=0.1.0
+langchain-community>=0.0.20
+langchain-openai>=0.0.5
+
+# Data & Visualization
+pandas>=2.0.0
+plotly>=5.18.0
+
+# Utilities
+kaleido>=0.2.1
