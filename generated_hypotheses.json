@@ -1,0 +1,37 @@
+{
+  "hypotheses": [
+    {
+      "hypothesis_id": 1,
+      "null_hypothesis": "There is no significant relationship between job satisfaction and employee attrition.",
+      "alternative_hypothesis": "Employees with lower job satisfaction are more likely to leave the organization.",
+      "variable_1": "jobsatisfaction",
+      "variable_2": "attrition",
+      "variable_1_type": "numerical",
+      "variable_2_type": "categorical",
+      "recommended_test": "Chi-square test",
+      "rationale": "Exploring the relationship between job satisfaction (numerical) and employee attrition (categorical) can reveal if dissatisfied employees are more likely to leave."
+    },
+    {
+      "hypothesis_id": 2,
+      "null_hypothesis": "There is no significant correlation between years at company and employee attrition.",
+      "alternative_hypothesis": "Employees who have been with the company for a shorter period are more likely to leave.",
+      "variable_1": "yearsatcompany",
+      "variable_2": "attrition",
+      "variable_1_type": "numerical",
+      "variable_2_type": "categorical",
+      "recommended_test": "Chi-square test",
+      "rationale": "Investigating the correlation between years spent at the company (numerical) and employee attrition (categorical) may uncover if tenure impacts turnover."
+    },
+    {
+      "hypothesis_id": 3,
+      "null_hypothesis": "There is no significant relationship between overtime work rate and employee attrition.",
+      "alternative_hypothesis": "Employees working more overtime are more likely to leave the organization.",
+      "variable_1": "overtime",
+      "variable_2": "attrition",
+      "variable_1_type": "categorical",
+      "variable_2_type": "categorical",
+      "recommended_test": "Chi-square test",
+      "rationale": "Examining the relationship between overtime work rate (categorical) and employee attrition (categorical) can determine if excessive overtime contributes to higher turnover."
+    }
+  ]
+}
