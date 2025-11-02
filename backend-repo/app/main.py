@@ -28,31 +28,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global agent instance
-combined_agent = None
+# Global multi-agent system instance
+multi_agent_system = None
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the Combined Agent on startup."""
-    global combined_agent
+    """Initialize the Multi-Agent System on startup."""
+    global multi_agent_system
     try:
-        from app.services.TTS_vis import CombinedAgent
-        print("🔄 Initializing Combined Agent (Text-to-SQL + Visualization)...")
-        combined_agent = CombinedAgent()
-        print("✅ Combined Agent initialized successfully!")
+        from app.services.multi_agent_system import initialize_multi_agent_system
+        print("🔄 Initializing Multi-Agent System...")
+        print("   - Planner Agent (Question Router)")
+        print("   - Text-to-SQL + Visualization Agents")
+        print("   - Hypothesis + Statistical Testing Agents")
+        multi_agent_system = initialize_multi_agent_system()
+        print("✅ Multi-Agent System initialized successfully!")
     except Exception as e:
-        print(f"❌ Failed to initialize Combined Agent: {str(e)}")
+        print(f"❌ Failed to initialize Multi-Agent System: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # Don't fail startup, just log the error
-        combined_agent = None
+        multi_agent_system = None
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
-    global combined_agent
-    combined_agent = None
-    print("👋 Combined Agent shut down")
+    global multi_agent_system
+    multi_agent_system = None
+    print("👋 Multi-Agent System shut down")
 
 
 app.include_router(api_router, prefix=settings.api_prefix)
@@ -62,5 +67,5 @@ app.include_router(api_router, prefix=settings.api_prefix)
 async def health() -> dict[str, str]:
     return {
         "status": "ok",
-        "agent_status": "ready" if combined_agent is not None else "not_initialized"
+        "agent_status": "ready" if multi_agent_system is not None else "not_initialized"
     }

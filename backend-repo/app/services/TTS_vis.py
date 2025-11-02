@@ -243,6 +243,21 @@ CREATE TABLE employee_attrition (
              "ORDER BY rate DESC;\n"
              "```\n\n"
              
+             "## Pattern 3: Derived Groupings (Age buckets, salary bands)\n"
+             "Question: \"How does metric vary across derived groups like age buckets?\"\n"
+             "Solution: Calculate the derived value inline in the main SELECT and reuse the SAME expression in GROUP BY.\n"
+             "⚠️ IMPORTANT: Do NOT wrap employee_attrition inside a subquery that only keeps the derived column—doing so removes columns like attrition needed for aggregation.\n"
+             "```sql\n"
+             "SELECT FLOOR(age / 10) * 10 AS age_group,\n"
+             "       COUNT(*) AS total_employees,\n"
+             "       COUNT(CASE WHEN attrition='Yes' THEN 1 END) AS employees_left,\n"
+             "       ROUND((COUNT(CASE WHEN attrition='Yes' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) AS attrition_rate\n"
+             "FROM employee_attrition\n"
+             "GROUP BY FLOOR(age / 10) * 10\n"
+             "ORDER BY age_group;\n"
+             "```\n"
+             "If a subquery is absolutely necessary, ensure it SELECTs every column referenced outside of it (e.g., attrition).\n\n"
+             
              "# DATABASE SCHEMA\n"
              "```sql\n"
              "{schema}\n"
@@ -261,6 +276,10 @@ CREATE TABLE employee_attrition (
              "Example 3:\n"
              "Q: Show average salary by department\n"
              "A: SELECT department, COUNT(*) as employee_count, ROUND(AVG(monthlyincome)::numeric, 2) as avg_salary FROM employee_attrition GROUP BY department ORDER BY avg_salary DESC\n\n"
+             
+             "Example 4:\n"
+             "Q: How does attrition vary across different age groups?\n"
+             "A: SELECT FLOOR(age / 10) * 10 AS age_group, COUNT(*) AS total_employees, COUNT(CASE WHEN attrition='Yes' THEN 1 END) AS employees_left, ROUND((COUNT(CASE WHEN attrition='Yes' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) AS attrition_rate FROM employee_attrition GROUP BY FLOOR(age / 10) * 10 ORDER BY age_group\n\n"
              
              "# IMPORTANT REMINDERS\n"
              "- ALWAYS cast to ::numeric for division operations\n"
@@ -361,16 +380,15 @@ CREATE TABLE employee_attrition (
         Returns:
             Dictionary with 'sql', 'data' (DataFrame), and 'error' (if any)
         """
-        try:
-            # Generate SQL
-            sql = self.generate_sql(question)
-            
+        def _run_sql(q: str) -> Tuple[pd.DataFrame, str]:
+            sql_query = self.generate_sql(q)
             if verbose:
-                print("Generated SQL:", sql)
-            
-            # Execute and return DataFrame
-            df = self.execute_sql(sql)
-            
+                print("Generated SQL:", sql_query)
+            df_result = self.execute_sql(sql_query)
+            return df_result, sql_query
+        
+        try:
+            df, sql = _run_sql(question)
             return {
                 "success": True,
                 "sql": sql,
@@ -379,15 +397,41 @@ CREATE TABLE employee_attrition (
                 "columns": list(df.columns),
                 "error": None
             }
-            
         except Exception as e:
+            error_message = str(e)
+            # Retry once with explicit guidance if undefined column errors occur
+            undefined_column = (
+                "UndefinedColumn" in error_message
+                or "column" in error_message.lower() and "does not exist" in error_message.lower()
+            )
+            if undefined_column:
+                feedback_question = (
+                    f"{question}\n\n"
+                    "The previous SQL failed because it referenced a column that was not available after using a subquery. "
+                    "Generate a corrected PostgreSQL SELECT that keeps all referenced columns (like attrition) in scope, "
+                    "computing derived buckets inline in the main query instead of subqueries."
+                )
+                try:
+                    df, sql = _run_sql(feedback_question)
+                    return {
+                        "success": True,
+                        "sql": sql,
+                        "data": df,
+                        "rows": len(df),
+                        "columns": list(df.columns),
+                        "error": None,
+                        "retry_notice": "SQL regenerated after fixing missing column error"
+                    }
+                except Exception as retry_err:
+                    error_message = f"{error_message}\nRetry failed: {retry_err}"
+            
             return {
                 "success": False,
                 "sql": None,
                 "data": None,
                 "rows": 0,
                 "columns": [],
-                "error": str(e)
+                "error": error_message
             }
 
 
@@ -417,7 +461,7 @@ class VisualizationAgent:
         self.prompt = ChatPromptTemplate.from_messages([
             ("system",
              "You are an EXPERT Python Plotly visualization developer. Your job is to generate COMPLETE, "
-             "EXECUTABLE Python code that creates appropriate Plotly visualizations.\n\n"
+             "EXECUTABLE Python code that creates appropriate and DIVERSE visualizations.\n\n"
              
              "CRITICAL RULES:\n"
              "1. Return ONLY executable Python code - NO markdown, NO explanations\n"
@@ -429,21 +473,66 @@ class VisualizationAgent:
              "7. Use ONLY columns that exist in the data summary\n"
              "8. Handle missing data gracefully\n\n"
              
-             "CHART TYPE SELECTION:\n"
-             "- Bar Chart: Comparing categories\n"
-             "- Grouped/Stacked Bar: Comparing categories with subcategories\n"
-             "- Line Chart: Trends over time\n"
-             "- Scatter Plot: Correlation between numerical variables\n"
-             "- Pie Chart: Part-to-whole relationships (<7 categories)\n"
-             "- Heatmap: Correlation matrix or 2D categorical data\n\n"
+             "CHART TYPE SELECTION (Choose the BEST, not just bars!):\n"
+             
+             "📊 COMPARATIVE VISUALIZATIONS:\n"
+             "- Bar Chart (Vertical): When comparing 3-8 categories\n"
+             "- Bar Chart (Horizontal): When comparing categories with long names\n"
+             "- Grouped Bar: Comparing categories WITH subcategories (e.g., gender by dept)\n"
+             "- Stacked Bar: Part-to-whole with subcategories\n\n"
+             
+             "📈 TREND & RELATIONSHIP:\n"
+             "- Line Chart: Trends over time or continuous variables\n"
+             "- Scatter Plot: Correlation/relationship between 2 numerical variables\n"
+             "  * Add trendline for strong correlations: trendline='ols'\n"
+             "  * Use color parameter for categorical grouping\n\n"
+             
+             "🎯 DISTRIBUTION & COMPOSITION:\n"
+             "- Pie/Donut Chart: Part-to-whole for 2-6 categories\n"
+             "  * Use hole=0.4 for donut effect\n"
+             "  * Perfect for % breakdowns\n"
+             "- Histogram: Distribution of single numerical variable\n"
+             "- Box Plot: Compare distributions across categories\n\n"
+             
+             "🔥 ADVANCED PATTERNS:\n"
+             "- Heatmap: Correlation matrix or 2D categorical relationships\n"
+             "- Sunburst: Hierarchical data (dept → role → attrition)\n"
+             "- Treemap: Hierarchical part-to-whole\n"
+             "- Violin Plot: Distribution + density for continuous variables\n\n"
+             
+             "DECISION MATRIX:\n"
+             "• Attrition/Rate BY category → Horizontal Bar or Pie Chart\n"
+             "• Income/Salary data → Box Plot (distribution) or Bar (comparison)\n"
+             "• Satisfaction scores → Stacked Bar or Heatmap\n"
+             "• 2 numerical columns → Scatter Plot with trendline\n"
+             "• Age/Years data → Histogram or Box Plot\n"
+             "• Nested categories → Sunburst or Treemap\n\n"
              
              "BEST PRACTICES:\n"
              "- Add meaningful titles describing the insight\n"
-             "- Use texttemplate to show values on bars/points\n"
-             "- Sort data logically\n"
-             "- Add hover_data for context\n"
-             "- Format numbers appropriately\n"
-             "- Use template='plotly_white' for clean styling\n\n"
+             "- Use texttemplate/textinfo to show values\n"
+             "- Sort data logically (by value, alphabetically, etc.)\n"
+             "- Add hover_data for additional context\n"
+             "- Format numbers: .2f for decimals, add % for rates\n"
+             "- Use template='plotly_white' or 'plotly_dark'\n"
+             "- Color scales: px.colors.sequential.Blues, Viridis, etc.\n\n"
+             
+             "EXAMPLE - Donut Chart:\n"
+             "```python\n"
+             "import plotly.express as px\n"
+             "fig = px.pie(df, names='category_col', values='value_col',\n"
+             "            title='Title', hole=0.4,\n"
+             "            color_discrete_sequence=px.colors.sequential.RdBu)\n"
+             "fig.update_traces(textposition='inside', textinfo='percent+label')\n"
+             "```\n\n"
+             
+             "EXAMPLE - Scatter with Trendline:\n"
+             "```python\n"
+             "import plotly.express as px\n"
+             "fig = px.scatter(df, x='age', y='monthlyincome',\n"
+             "                color='department', size='yearsatcompany',\n"
+             "                trendline='ols', title='Income vs Age')\n"
+             "```\n\n"
              
              "DATA SUMMARY:\n"
              "{data_summary}\n\n"
@@ -451,11 +540,12 @@ class VisualizationAgent:
              "DATA DICTIONARY:\n"
              "{data_dictionary}\n\n"
              
-             "Remember: Return ONLY Python code. No markdown, no explanations.\n"),
+             "Remember: Choose the MOST INSIGHTFUL chart type, not always bars!\n"),
             ("user",
              "Create a Plotly visualization for this data:\n\n"
              "Original Question: {original_question}\n\n"
-             "Generate complete, executable Python code that creates the most appropriate visualization.\n"
+             "Generate complete, executable Python code that creates the MOST APPROPRIATE and INSIGHTFUL visualization.\n"
+             "Think about what tells the story best - bars, pie, scatter, box plot, etc.\n"
              "The code must create a 'fig' variable. DO NOT include fig.show().")
         ])
         
@@ -611,12 +701,71 @@ fig.update_layout(
             }
                 
         except Exception as e:
-            return {
-                "success": False,
-                "code": code if 'code' in locals() else None,
-                "figure": None,
-                "error": str(e)
-            }
+            # Fallback: Create a simple bar chart
+            print(f"⚠️ Visualization generation failed: {str(e)}")
+            print("🔄 Creating fallback visualization...")
+            
+            try:
+                # Create simple fallback visualization
+                if len(df.columns) >= 2:
+                    # Get first column (likely categorical) and last numeric column
+                    x_col = df.columns[0]
+                    
+                    # Find the last numeric column for y-axis
+                    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+                    if numeric_cols:
+                        y_col = numeric_cols[-1]  # Use last numeric column (likely the main metric)
+                    else:
+                        y_col = df.columns[-1]  # Fallback to last column
+                    
+                    print(f"📊 Creating bar chart: x='{x_col}', y='{y_col}'")
+                    
+                    fig = px.bar(
+                        df,
+                        x=x_col,
+                        y=y_col,
+                        title=f"{y_col.replace('_', ' ').title()} by {x_col.replace('_', ' ').title()}",
+                        template='plotly_white',
+                        color=y_col,
+                        text=y_col,
+                        labels={x_col: x_col.replace('_', ' ').title(), y_col: y_col.replace('_', ' ').title()}
+                    )
+                    
+                    # Update layout for better appearance
+                    fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                    fig.update_layout(
+                        xaxis_title=x_col.replace('_', ' ').title(),
+                        yaxis_title=y_col.replace('_', ' ').title(),
+                        showlegend=False,
+                        height=400
+                    )
+                    
+                    fallback_code = f"""import plotly.express as px
+fig = px.bar(df, x='{x_col}', y='{y_col}',
+             title='{y_col.replace('_', ' ').title()} by {x_col.replace('_', ' ').title()}',
+             template='plotly_white')"""
+                    
+                    print("✅ Fallback visualization created successfully")
+                    
+                    return {
+                        "success": True,
+                        "code": fallback_code,
+                        "figure": fig,
+                        "error": None,
+                        "fallback": True
+                    }
+                else:
+                    # Not enough columns
+                    raise ValueError("Unable to create fallback visualization - insufficient columns")
+                    
+            except Exception as fallback_error:
+                print(f"❌ Fallback visualization also failed: {str(fallback_error)}")
+                return {
+                    "success": False,
+                    "code": code if 'code' in locals() else None,
+                    "figure": None,
+                    "error": str(e)
+                }
 
 
 # ═══════════════════════════════════════════════════════════

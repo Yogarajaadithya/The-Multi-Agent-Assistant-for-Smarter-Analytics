@@ -12,7 +12,9 @@ export type HistoryItem = {
 };
 
 export const EXAMPLE_PROMPTS = [
-  "What is the most effective machine learning model for predicting customer churn?",
-  "How would you design a recommendation system for an e-commerce site?",
-  "What are some best practices for data preprocessing in NLP tasks?"
+  "What is the attrition rate by department?",
+  "Why do employees leave the company?",
+  "What is the average monthly income by job role?",
+  "Why is attrition higher in Sales department?",
+  "What is the distribution of years at company for employees who left vs stayed?"
 ] as const;
