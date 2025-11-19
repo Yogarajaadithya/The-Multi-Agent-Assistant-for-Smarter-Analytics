@@ -1,0 +1,78 @@
+HR KPI DOCUMENTATION
+====================
+
+This document provides definitions, meanings, and calculation formulas for key HR metrics.
+
+--------------------------------------------------------------------------------
+
+1. Employee Attrition Rate
+   
+   Meaning:
+   Measures the percentage of employees leaving the organization within a given period.
+   
+   Calculation:
+   Attrition Rate = (Number of employees who left / Total employees) * 100%
+
+--------------------------------------------------------------------------------
+
+2. Employee Turnover Rate
+   
+   Meaning:
+   Tracks the rate at which employees leave and are replaced in the organization.
+   
+   Calculation:
+   Turnover Rate = (Total separations / Average number of employees) * 100%
+
+--------------------------------------------------------------------------------
+
+3. Average Employee Tenure
+   
+   Meaning:
+   Calculates the average length of time employees stay in the company.
+   
+   Calculation:
+   Average Tenure = (Sum of all employee tenures / Total number of employees)
+
+--------------------------------------------------------------------------------
+
+4. Employee Engagement Score
+   
+   Meaning:
+   Measures overall employee satisfaction, motivation, and commitment to the organization.
+   
+   Calculation:
+   Employee Engagement Score = (Survey Results + Performance Metrics) / 2
+
+--------------------------------------------------------------------------------
+
+5. Gender Pay Gap
+   
+   Meaning:
+   Measures the difference in earnings between male and female employees.
+   
+   Calculation:
+   Gender Pay Gap = ((Average Male Salary - Average Female Salary) / Average Male Salary) * 100%
+
+--------------------------------------------------------------------------------
+
+6. Overtime Work Rate
+   
+   Meaning:
+   Tracks how frequently employees work overtime.
+   
+   Calculation:
+   Overtime Work Rate = (Total Overtime Hours / Total Work Hours) * 100%
+
+--------------------------------------------------------------------------------
+
+7. Promotion Rate
+   
+   Meaning:
+   Tracks the percentage of employees promoted within a given period.
+   
+   Calculation:
+   Promotion Rate = (Number of Promotions / Total Employees) * 100%
+
+--------------------------------------------------------------------------------
+
+End of Document
