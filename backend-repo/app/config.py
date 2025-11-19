@@ -16,9 +16,9 @@ class Settings(BaseModel):
         "http://localhost:5173",
         "http://127.0.0.1:5173"
     ]
-    lmstudio_base_url: str = os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:1234/v1")
+    lmstudio_base_url: str = os.getenv("OPENAI_BASE_URL", "http://192.168.178.31:1234/v1")
     lmstudio_api_key: str = os.getenv("OPENAI_API_KEY", "lm-studio")
-    lmstudio_model_id: str = os.getenv("OPENAI_MODEL", "ibm/granite-3.2-8b")
+    lmstudio_model_id: str = os.getenv("OPENAI_MODEL", "lbm/granite-3.2-8b")
     
     # Database configuration
     db_schema: str = os.getenv("DB_SCHEMA", "public")
