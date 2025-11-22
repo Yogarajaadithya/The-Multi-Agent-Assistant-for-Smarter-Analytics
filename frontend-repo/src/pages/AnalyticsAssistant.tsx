@@ -4,6 +4,7 @@ import { XMarkIcon, Bars3Icon, MagnifyingGlassIcon, TrashIcon } from '@heroicons
 import Plot from 'react-plotly.js';
 import CodeBlock from '../components/CodeBlock';
 import Tabs from '../components/Tabs';
+import AgentActivityPopup from '../components/AgentActivityPopup';
 import { EXAMPLE_PROMPTS } from '../lib/api';
 import { sendAnalyticsQuery } from '../api/client';
 
@@ -23,6 +24,13 @@ interface HistoryItem {
   ts: string;
 }
 
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+  agent?: string;
+}
+
 export default function AnalyticsAssistant() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,6 +40,8 @@ export default function AnalyticsAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [activityPopupOpen, setActivityPopupOpen] = useState(false);
+  const [agentLogs, setAgentLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem(STORAGE_KEY);
@@ -58,6 +68,11 @@ export default function AnalyticsAssistant() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   };
 
+  const addLog = (message: string, level: string = 'info', agent?: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setAgentLogs(prev => [...prev, { timestamp, level, message, agent }]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
@@ -65,6 +80,7 @@ export default function AnalyticsAssistant() {
     const query = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
+    setAgentLogs([]); // Clear previous logs
 
     const newMessage = {
       id: Date.now().toString(),
@@ -74,11 +90,15 @@ export default function AnalyticsAssistant() {
     };
 
     setMessages(prev => [...prev, newMessage]);
+    addLog(`Received query: "${query}"`, 'info', 'System');
 
     try {
       // Use the multi-agent system endpoint (routes through Planner Agent)
+      addLog('Sending query to multi-agent system...', 'info', 'System');
+      addLog('Routing through Planner Agent...', 'info', 'Planner');
       console.log('🔵 Calling sendAnalyticsQuery with question:', query);
       const response = await sendAnalyticsQuery(query);
+      addLog('Received response from backend', 'success', 'System');
       
       // Debug: Log the full response
       console.log('🟢 Full response received:', response);
@@ -93,8 +113,19 @@ export default function AnalyticsAssistant() {
       
       // Check for errors first
       if (response.error || response.success === false) {
+        addLog(`Query failed: ${response.error || 'Unknown error'}`, 'error', 'System');
         responseText = `Query failed: ${response.error || 'Unknown error occurred'}\n\nPlease try rephrasing your question or check the data.`;
       } else if (response.question_type === 'WHAT') {
+        addLog('Question classified as WHAT (Descriptive Analytics)', 'info', 'Planner');
+        addLog('Activating Text-to-SQL Agent...', 'info', 'Text-to-SQL');
+        addLog('Generating SQL query from natural language...', 'info', 'Text-to-SQL');
+        if (response.sql) {
+          addLog('SQL query generated successfully', 'success', 'Text-to-SQL');
+        }
+        addLog('Activating Visualization Agent...', 'info', 'Visualization');
+        if (response.visualization?.success) {
+          addLog('Visualization created successfully', 'success', 'Visualization');
+        }
         // Descriptive analytics response (SQL + Visualization)
         if (response.message) {
           responseText = response.message;
@@ -104,10 +135,24 @@ export default function AnalyticsAssistant() {
           responseText = 'Query completed successfully!\n\nQuestion Type: WHAT (Descriptive Analytics)';
         }
       } else if (response.question_type === 'WHY') {
+        addLog('Question classified as WHY (Causal Analytics)', 'info', 'Planner');
         // Causal analytics response (Hypothesis + Statistical Testing + Visualizations)
         const numHypotheses = response.hypotheses?.hypotheses?.length || 0;
         const numTests = response.statistical_results?.hypothesis_results?.length || 0;
         const numVisualizations = response.visualizations?.length || 0;
+        
+        addLog('Activating Hypothesis Generation Agent...', 'info', 'Hypothesis');
+        if (numHypotheses > 0) {
+          addLog(`Generated ${numHypotheses} hypotheses`, 'success', 'Hypothesis');
+          addLog('Activating Text-to-SQL Agent for hypothesis testing...', 'info', 'Text-to-SQL');
+          addLog(`Generated ${numHypotheses} SQL queries`, 'success', 'Text-to-SQL');
+          addLog('Activating Visualization Agent...', 'info', 'Visualization');
+          addLog(`Created ${numVisualizations} visualizations`, 'success', 'Visualization');
+          addLog('Activating Statistical Testing Agent...', 'info', 'Stats');
+          addLog(`Completed ${numTests} statistical tests`, 'success', 'Stats');
+        } else {
+          addLog('Hypothesis generation failed', 'error', 'Hypothesis');
+        }
         
         responseText = `Generated ${numHypotheses} hypotheses with ${numVisualizations} visualizations and conducted ${numTests} statistical test(s).\n\nQuestion Type: WHY (Causal Analytics)\nAgents Used: Hypothesis Generation + Text-to-SQL + Visualization + Statistical Testing`;
         
@@ -142,11 +187,13 @@ export default function AnalyticsAssistant() {
       };
 
       saveHistory([historyItem, ...history].slice(0, 10));
+      addLog('Query processing completed successfully', 'success', 'System');
     } catch (error) {
       console.error('[ERROR] Analytics query failed:', error);
       console.error('[ERROR] Error type:', typeof error);
       console.error('[ERROR] Error details:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addLog(`Fatal error: ${errorMessage}`, 'error', 'System');
       setMessages(prev => [
         ...prev,
         {
@@ -816,6 +863,66 @@ export default function AnalyticsAssistant() {
           </div>
         </div>
       </main>
+
+      {/* Floating Agent Activity Button */}
+      <div className="fixed bottom-6 right-6 z-40 group/tooltip">
+        {/* Thinking bubble tooltip */}
+        <div className="absolute bottom-full right-0 mb-6 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-300 pointer-events-none scale-0 group-hover/tooltip:scale-100">
+          <div className="relative bg-gradient-to-r from-white via-cyan-50 to-blue-50 text-gray-900 px-5 py-3 rounded-3xl shadow-2xl border-3 border-cyan-400 animate-bounce-slow whitespace-nowrap">
+            <p className="text-base font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+              Wanna know how I work? 🧠✨
+            </p>
+            {/* Speech bubble tail */}
+            <div className="absolute -bottom-3 right-8 w-6 h-6 bg-gradient-to-br from-white to-cyan-50 border-r-3 border-b-3 border-cyan-400 transform rotate-45"></div>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => setActivityPopupOpen(true)}
+          className="relative w-24 h-24 bg-gradient-to-br from-amber-400 via-orange-400 to-pink-400 rounded-full shadow-2xl shadow-orange-500/60 hover:shadow-orange-500/80 hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center text-6xl border-4 border-white/30 hover:border-white/50 group"
+          title="View Agent Activity"
+        >
+          {/* Glow ring animation */}
+          <span className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-300 to-pink-300 animate-pulse-ring"></span>
+          
+          <span className="relative transition-all duration-300">
+            {/* Bear expressions based on state */}
+            {isLoading ? (
+              <span className="inline-block animate-bear-thinking">🐻‍❄️</span>
+            ) : (
+              <span className="inline-block group-hover:hidden animate-bear-idle">🐻</span>
+            )}
+            <span className="hidden group-hover:inline-block animate-bear-excited">🐻</span>
+          </span>
+          
+          {agentLogs.length > 0 && (
+            <span className="absolute -top-2 -left-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-full w-8 h-8 flex items-center justify-center border-3 border-white shadow-lg animate-bounce-wiggle">
+              {agentLogs.length > 99 ? '99+' : agentLogs.length}
+            </span>
+          )}
+          
+          {/* Processing indicator */}
+          {isLoading && (
+            <span className="absolute -top-2 -right-2 flex h-5 w-5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-5 w-5 bg-green-500 border-2 border-white"></span>
+            </span>
+          )}
+        </button>
+
+        {/* Pulsing attention grabber when idle */}
+        {!isLoading && agentLogs.length === 0 && (
+          <div className="absolute inset-0 rounded-full bg-yellow-400/20 animate-ping-slow pointer-events-none"></div>
+        )}
+      </div>
+
+      {/* Agent Activity Popup */}
+      <AgentActivityPopup
+        isOpen={activityPopupOpen}
+        onClose={() => setActivityPopupOpen(false)}
+        logs={agentLogs}
+        isProcessing={isLoading}
+      />
     </div>
   );
 }
