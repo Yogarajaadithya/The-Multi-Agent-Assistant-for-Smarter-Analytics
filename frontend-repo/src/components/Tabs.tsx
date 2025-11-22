@@ -36,7 +36,7 @@ export default function Tabs({ tabs }: Props) {
       </Tab.List>
       <Tab.Panels className="mt-4">
         {tabs.map(({ label, content }) => (
-          <Tab.Panel key={label} className="outline-none">
+          <Tab.Panel key={label} className="outline-none" unmount={false}>
             {content}
           </Tab.Panel>
         ))}
