@@ -157,46 +157,157 @@ The code must create a 'fig' variable. DO NOT include fig.show().
 Remember: Use ONLY the exact column names from the data summary above - DO NOT create or assume column names."""
 
 
-hypothesis_agent_prompt = """You are an expert statistician specializing in data analytics hypothesis generation.
+hypothesis_agent_prompt = """You are an EXPERT STATISTICIAN and HR ANALYTICS SPECIALIST specializing in hypothesis generation for data-driven research.
 
-# TASK
-Generate {num_hypotheses} testable bivariate hypotheses based on the user's question.
-Each hypothesis MUST involve exactly TWO variables from the dataset.
+═══════════════════════════════════════════════════════════════════════════════
+🎯 YOUR MISSION
+═══════════════════════════════════════════════════════════════════════════════
+Generate {num_hypotheses} TESTABLE, BIVARIATE hypotheses that directly address the user's question.
+Each hypothesis MUST involve EXACTLY TWO variables and be statistically testable with the available data.
 
-# REQUIREMENTS
-1. Each hypothesis MUST use variables that exist in the dataset
-2. Include both null (H0) and alternative (H1) hypotheses
-3. Specify the correct statistical test based on variable types:
-   - Categorical vs Categorical → Chi-square test
-   - Categorical vs Numerical → t-test or ANOVA
-   - Numerical vs Numerical → Correlation (Pearson/Spearman)
-4. Provide clear rationale connecting hypothesis to the user's question
-
-# AVAILABLE VARIABLES
+═══════════════════════════════════════════════════════════════════════════════
+📊 DATASET CONTEXT & VARIABLE INFORMATION
+═══════════════════════════════════════════════════════════════════════════════
 {context}
 
-# USER QUESTION
+═══════════════════════════════════════════════════════════════════════════════
+❓ USER'S RESEARCH QUESTION
+═══════════════════════════════════════════════════════════════════════════════
 {user_query}
 
-# OUTPUT FORMAT (JSON)
-Return ONLY a valid JSON object with this structure:
+═══════════════════════════════════════════════════════════════════════════════
+✅ HYPOTHESIS GENERATION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. **Variable Selection - CRITICAL:**
+   - Use ONLY variables listed in "DATASET CONTEXT" section above
+   - Use EXACT column names as shown (all lowercase, no spaces)
+   - Check the "is_categorical" column: TRUE = categorical, FALSE = numerical
+   - Each hypothesis must involve EXACTLY 2 variables
+   - Choose variables most relevant to answering the user's question
+
+2. **Variable Type Identification:**
+   - **Categorical variables** (is_categorical = TRUE): attrition, businesstravel, department, educationfield, gender, jobrole, maritalstatus, overtime, etc.
+   - **Numerical variables** (is_categorical = FALSE): age, monthlyincome, yearsatcompany, distancefromhome, dailyrate, hourlyrate, etc.
+   - **Ordinal as Categorical**: education, environmentsatisfaction, jobinvolvement, joblevel, jobsatisfaction, performancerating, relationshipsatisfaction, stockoptionlevel, worklifebalance
+
+3. **Hypothesis Structure - Be Specific:**
+   - **Null Hypothesis (H0):** State that NO relationship/effect/difference exists
+   - **Alternative Hypothesis (H1):** State that a relationship/effect/difference DOES exist
+   - Use precise language: "is associated with", "differs between groups", "correlates with"
+   - Avoid vague terms like "impacts" or "affects"
+
+4. **Statistical Test Selection Guide:**
+   
+   | Variable 1 Type | Variable 2 Type | Test to Use |
+   |----------------|----------------|-------------|
+   | Categorical    | Categorical    | Chi-square test of independence |
+   | Categorical (2 groups) | Numerical | Independent samples t-test |
+   | Categorical (3+ groups) | Numerical | One-way ANOVA |
+   | Numerical      | Numerical      | Pearson correlation |
+
+5. **Rationale Quality:**
+   - Explain WHY testing this hypothesis answers the user's question
+   - Connect to HR domain knowledge (retention, engagement, satisfaction, compensation)
+   - Reference the data dictionary descriptions if helpful
+   - Keep concise but meaningful (2-3 sentences)
+
+6. **Quality Checklist - Every Hypothesis Must:**
+   ✓ Use exact variable names from the dataset (all lowercase)
+   ✓ Have variables directly relevant to the user's question
+   ✓ Include mutually exclusive H0 and H1 statements
+   ✓ Match statistical test to variable types correctly
+   ✓ Provide clear rationale linking hypothesis to research question
+   ✓ Be testable with the available data
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 EXAMPLES OF HIGH-QUALITY HYPOTHESES
+═══════════════════════════════════════════════════════════════════════════════
+
+**Example 1: Categorical vs Categorical (Chi-square)**
+User Question: "Why do employees leave the company?"
+{{
+  "hypothesis_id": 1,
+  "null_hypothesis": "There is no association between overtime work and attrition status",
+  "alternative_hypothesis": "Employees who work overtime have different attrition rates compared to those who do not work overtime",
+  "variable_1": "overtime",
+  "variable_2": "attrition",
+  "variable_1_type": "categorical",
+  "variable_2_type": "categorical",
+  "recommended_test": "Chi-square test of independence",
+  "rationale": "Overtime work can lead to burnout, reduced work-life balance, and job dissatisfaction, which are key drivers of employee attrition. Testing this association helps identify if workload intensity contributes to employees leaving the organization."
+}}
+
+**Example 2: Categorical vs Numerical (t-test)**
+User Question: "Why do employees leave the company?"
+{{
+  "hypothesis_id": 2,
+  "null_hypothesis": "Mean monthly income does not differ between employees who left and those who stayed",
+  "alternative_hypothesis": "Employees who left the company have significantly different monthly income compared to those who stayed",
+  "variable_1": "attrition",
+  "variable_2": "monthlyincome",
+  "variable_1_type": "categorical",
+  "variable_2_type": "numerical",
+  "recommended_test": "Independent samples t-test",
+  "rationale": "Compensation is a fundamental retention factor. Employees with lower salaries may seek better-paying opportunities elsewhere, making income level a critical predictor of attrition decisions."
+}}
+
+**Example 3: Numerical vs Numerical (Correlation)**
+User Question: "What factors relate to employee compensation?"
+{{
+  "hypothesis_id": 3,
+  "null_hypothesis": "There is no correlation between years at company and monthly income",
+  "alternative_hypothesis": "There is a positive correlation between years at company and monthly income",
+  "variable_1": "yearsatcompany",
+  "variable_2": "monthlyincome",
+  "variable_1_type": "numerical",
+  "variable_2_type": "numerical",
+  "recommended_test": "Pearson correlation",
+  "rationale": "Longer tenure typically results in salary increases through promotions and annual raises. Analyzing this correlation reveals whether the organization rewards employee loyalty with appropriate compensation growth."
+}}
+
+**Example 4: Categorical (3+ groups) vs Numerical (ANOVA)**
+User Question: "Why do employees leave the company?"
+{{
+  "hypothesis_id": 4,
+  "null_hypothesis": "Mean distance from home does not differ across different departments",
+  "alternative_hypothesis": "Mean distance from home differs significantly across different departments",
+  "variable_1": "department",
+  "variable_2": "distancefromhome",
+  "variable_1_type": "categorical",
+  "variable_2_type": "numerical",
+  "recommended_test": "One-way ANOVA",
+  "rationale": "Commute distance can affect work-life balance and job satisfaction differently across departments. Certain departments may require more on-site presence, making commute a relevant factor in retention analysis."
+}}
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 OUTPUT FORMAT (STRICT JSON - NO MARKDOWN)
+═══════════════════════════════════════════════════════════════════════════════
+
+Return ONLY a valid JSON object. NO markdown code blocks, NO explanations, NO extra text.
+
 {{
   "hypotheses": [
     {{
       "hypothesis_id": 1,
-      "null_hypothesis": "H0 statement",
-      "alternative_hypothesis": "H1 statement",
-      "variable_1": "variable_name",
-      "variable_2": "variable_name",
+      "null_hypothesis": "Clear, specific H0 statement",
+      "alternative_hypothesis": "Clear, specific H1 statement",
+      "variable_1": "exact_column_name_lowercase",
+      "variable_2": "exact_column_name_lowercase",
       "variable_1_type": "categorical" or "numerical",
       "variable_2_type": "categorical" or "numerical",
-      "recommended_test": "test name",
-      "rationale": "explanation"
+      "recommended_test": "Specific statistical test name",
+      "rationale": "2-3 sentence explanation connecting this hypothesis to the user's research question"
     }}
   ]
 }}
 
-Return your analysis as JSON."""
+═══════════════════════════════════════════════════════════════════════════════
+🚀 GENERATE HYPOTHESES NOW
+═══════════════════════════════════════════════════════════════════════════════
+
+Analyze the user's research question, review the dataset variables carefully, and generate {num_hypotheses} high-quality, testable hypotheses that directly address their question using appropriate variable combinations.
+"""
 
 
 stats_agent_prompt = """You are a statistical testing expert for data analytics.
