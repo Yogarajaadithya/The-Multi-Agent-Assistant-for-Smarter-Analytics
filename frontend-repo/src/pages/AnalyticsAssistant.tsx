@@ -358,7 +358,7 @@ export default function AnalyticsAssistant() {
               <span className="sr-only">Toggle history</span>
             </button>
             <div className="flex-1 text-center">
-              <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-teal-500/10 border border-cyan-500/20 shadow-lg shadow-cyan-500/20">
+                <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-teal-500/10 border border-cyan-500/20 shadow-lg shadow-cyan-500/20">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 animate-pulse shadow-lg shadow-emerald-500/50"></div>
                   <span className="text-xs font-medium text-gray-400">Online</span>
@@ -879,11 +879,11 @@ export default function AnalyticsAssistant() {
         
         <button
           onClick={() => setActivityPopupOpen(true)}
-          className="relative w-24 h-24 bg-gradient-to-br from-amber-400 via-orange-400 to-pink-400 rounded-full shadow-2xl shadow-orange-500/60 hover:shadow-orange-500/80 hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center text-6xl border-4 border-white/30 hover:border-white/50 group"
+          className="relative w-24 h-24 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-full shadow-2xl shadow-cyan-500/60 hover:shadow-cyan-500/80 hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center text-6xl border-4 border-cyan-300/40 hover:border-cyan-300/60 group"
           title="View Agent Activity"
         >
           {/* Glow ring animation */}
-          <span className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-300 to-pink-300 animate-pulse-ring"></span>
+          <span className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400 to-purple-400 animate-pulse-ring"></span>
           
           <span className="relative transition-all duration-300">
             {/* Bear expressions based on state */}
@@ -896,7 +896,7 @@ export default function AnalyticsAssistant() {
           </span>
           
           {agentLogs.length > 0 && (
-            <span className="absolute -top-2 -left-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-full w-8 h-8 flex items-center justify-center border-3 border-white shadow-lg animate-bounce-wiggle">
+            <span className="absolute -top-2 -left-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-sm font-bold rounded-full w-8 h-8 flex items-center justify-center border-3 border-white shadow-lg animate-bounce-wiggle">
               {agentLogs.length > 99 ? '99+' : agentLogs.length}
             </span>
           )}
@@ -912,7 +912,7 @@ export default function AnalyticsAssistant() {
 
         {/* Pulsing attention grabber when idle */}
         {!isLoading && agentLogs.length === 0 && (
-          <div className="absolute inset-0 rounded-full bg-yellow-400/20 animate-ping-slow pointer-events-none"></div>
+          <div className="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping-slow pointer-events-none"></div>
         )}
       </div>
 
