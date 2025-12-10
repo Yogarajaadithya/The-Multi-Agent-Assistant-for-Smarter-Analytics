@@ -3,7 +3,7 @@ import json
 from typing import List, Optional, Literal, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI
 import plotly.io as pio
 
 from app.services.llm import get_lm_client
@@ -87,12 +87,12 @@ def strip_think_tags(content: str) -> str:
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     req: ChatRequest,
-    client: AsyncOpenAI = Depends(get_lm_client),
+    client: AsyncAzureOpenAI = Depends(get_lm_client),
     settings = Depends(get_settings),
 ) -> ChatResponse:
     try:
         completion = await client.chat.completions.create(
-            model=settings.lmstudio_model_id,
+            model=settings.azure_openai_deployment,
             messages=[m.dict() for m in req.messages],  # Changed from model_dump() to dict()
             temperature=req.temperature,
             top_p=req.top_p,

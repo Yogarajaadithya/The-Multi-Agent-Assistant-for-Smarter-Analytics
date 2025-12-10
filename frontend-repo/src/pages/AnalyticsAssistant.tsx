@@ -890,9 +890,11 @@ export default function AnalyticsAssistant() {
             {isLoading ? (
               <span className="inline-block animate-bear-thinking">🐻‍❄️</span>
             ) : (
-              <span className="inline-block group-hover:hidden animate-bear-idle">🐻</span>
+              <>
+                <span className="inline-block group-hover:hidden animate-bear-idle">🐻</span>
+                <span className="hidden group-hover:inline-block animate-bear-excited">🐻</span>
+              </>
             )}
-            <span className="hidden group-hover:inline-block animate-bear-excited">🐻</span>
           </span>
           
           {agentLogs.length > 0 && (

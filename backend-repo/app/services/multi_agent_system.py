@@ -10,7 +10,7 @@ Date: November 19, 2025
 import os
 from typing import Dict, Any
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 
 from app.services.planner_agent import planner_agent
 from app.services.text_to_sql_agent import text_to_sql_agent, get_database_connection
@@ -21,7 +21,7 @@ from app.services.stats_agent import stats_agent
 
 async def process_question(
     question: str,
-    llm: ChatOpenAI = None,
+    llm: AzureChatOpenAI = None,
     num_hypotheses: int = 3,
     include_viz: bool = True,
     verbose: bool = False
@@ -85,7 +85,7 @@ async def process_question(
 
 async def _handle_what_question(
     question: str,
-    llm: ChatOpenAI,
+    llm: AzureChatOpenAI,
     include_viz: bool,
     verbose: bool,
     planner_decision: Dict[str, Any]
@@ -170,7 +170,7 @@ async def _handle_what_question(
 
 async def _handle_why_question(
     question: str,
-    llm: ChatOpenAI,
+    llm: AzureChatOpenAI,
     num_hypotheses: int,
     include_viz: bool,
     verbose: bool,
@@ -354,20 +354,21 @@ async def _handle_why_question(
         }
 
 
-def initialize_llm() -> ChatOpenAI:
+def initialize_llm() -> AzureChatOpenAI:
     """
     Initialize and return the LLM instance.
     Use this in FastAPI startup event.
     
     Returns:
-        ChatOpenAI instance configured for local LLM
+        AzureChatOpenAI instance configured for Azure OpenAI
     """
     load_dotenv(override=True)
     
-    return ChatOpenAI(
-        model=os.environ.get("OPENAI_MODEL", "ibm/granite-3.2-8b"),
-        base_url=os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:1234/v1"),
-        api_key=os.environ.get("OPENAI_API_KEY", "lm-studio"),
+    return AzureChatOpenAI(
+        azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1"),
+        azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT", "https://assistant-genai.openai.azure.com/"),
+        api_key=os.environ.get("AZURE_OPENAI_API_KEY", ""),
+        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview"),
         temperature=0.0,
         timeout=120.0,
         max_retries=2,

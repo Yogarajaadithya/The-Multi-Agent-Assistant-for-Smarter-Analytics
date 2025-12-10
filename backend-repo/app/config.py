@@ -16,9 +16,12 @@ class Settings(BaseModel):
         "http://localhost:5173",
         "http://127.0.0.1:5173"
     ]
-    lmstudio_base_url: str = os.getenv("OPENAI_BASE_URL", "http://192.168.178.31:1234/v1")
-    lmstudio_api_key: str = os.getenv("OPENAI_API_KEY", "lm-studio")
-    lmstudio_model_id: str = os.getenv("OPENAI_MODEL", "lbm/granite-3.2-8b")
+    
+    # Azure OpenAI Configuration
+    azure_openai_api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")
+    azure_openai_endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "https://assistant-genai.openai.azure.com/")
+    azure_openai_api_version: str = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+    azure_openai_deployment: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1")
     
     # Database configuration
     db_schema: str = os.getenv("DB_SCHEMA", "public")
