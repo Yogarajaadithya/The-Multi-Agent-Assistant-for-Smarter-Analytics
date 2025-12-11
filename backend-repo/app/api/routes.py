@@ -8,6 +8,7 @@ import plotly.io as pio
 
 from app.services.llm import get_lm_client
 from app.config import get_settings
+from app.services.dataset_manager import get_dataset_manager
 
 
 class Message(BaseModel):
@@ -477,3 +478,98 @@ async def analyze_why_question(req: AnalysisRequest) -> Dict[str, Any]:
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"WHY analysis failed: {str(e)}")
+
+
+# ============================================================================
+# DATASET MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@router.get("/datasets")
+async def get_datasets():
+    """Get list of all available datasets"""
+    try:
+        dataset_manager = get_dataset_manager()
+        datasets = dataset_manager.get_all_datasets()
+        return {
+            "success": True,
+            "datasets": datasets,
+            "current_dataset_id": dataset_manager.current_dataset_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get datasets: {str(e)}")
+
+
+@router.get("/datasets/current")
+async def get_current_dataset():
+    """Get information about the currently active dataset"""
+    try:
+        dataset_manager = get_dataset_manager()
+        current = dataset_manager.get_current_dataset()
+        return {
+            "success": True,
+            "dataset": {
+                "id": current.id,
+                "name": current.name,
+                "description": current.description,
+                "schema_name": current.schema_name,
+                "main_table": current.main_table
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get current dataset: {str(e)}")
+
+
+@router.post("/datasets/switch")
+async def switch_dataset(dataset_id: str):
+    """Switch to a different dataset"""
+    try:
+        dataset_manager = get_dataset_manager()
+        success = dataset_manager.switch_dataset(dataset_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found")
+        
+        current = dataset_manager.get_current_dataset()
+        return {
+            "success": True,
+            "message": f"Switched to dataset: {current.name}",
+            "dataset": {
+                "id": current.id,
+                "name": current.name,
+                "description": current.description,
+                "schema_name": current.schema_name,
+                "main_table": current.main_table
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to switch dataset: {str(e)}")
+
+
+@router.get("/datasets/{dataset_id}")
+async def get_dataset_info(dataset_id: str):
+    """Get detailed information about a specific dataset"""
+    try:
+        dataset_manager = get_dataset_manager()
+        dataset = dataset_manager.get_dataset(dataset_id)
+        
+        if dataset is None:
+            raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found")
+        
+        return {
+            "success": True,
+            "dataset": {
+                "id": dataset.id,
+                "name": dataset.name,
+                "description": dataset.description,
+                "schema_name": dataset.schema_name,
+                "main_table": dataset.main_table,
+                "data_dictionary_path": dataset.data_dictionary_path,
+                "kpi_documentation_path": dataset.kpi_documentation_path
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get dataset info: {str(e)}")

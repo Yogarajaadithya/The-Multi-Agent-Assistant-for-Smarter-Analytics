@@ -1,10 +1,11 @@
 """
-Central Prompts Repository for Multi-Agent HR Analytics System
-================================================================
+Central Prompts Repository for Multi-Agent Analytics System
+============================================================
 All agent prompts are stored here as variables for easy management and updates.
+Supports multiple datasets: HR Analytics and E-commerce Sales Analytics
 
 Author: Yogarajaadithya
-Date: November 7, 2025
+Date: December 10, 2025
 """
 
 import pandas as pd
@@ -23,24 +24,38 @@ def _get_data_folder_path() -> Path:
     return project_root / "data"
 
 
-def _load_hr_kpi_documentation() -> str:
-    """Load HR KPI documentation from file."""
+def _load_kpi_documentation(dataset_type: str = "hr") -> str:
+    """Load KPI documentation from file based on dataset type."""
     data_folder = _get_data_folder_path()
-    kpi_file = data_folder / "hr_kpi_documentation.txt"
+    
+    if dataset_type.lower() == "hr":
+        kpi_file = data_folder / "hr_data" / "hr_kpi_documentation.txt"
+    elif dataset_type.lower() == "sales":
+        kpi_file = data_folder / "sales_data" / "zalando_kpi_documentation.txt"
+    else:
+        return f"Unknown dataset type: {dataset_type}"
     
     try:
         with open(kpi_file, 'r', encoding='utf-8') as f:
             return f.read()
     except FileNotFoundError:
-        return "HR KPI documentation file not found."
+        return f"{dataset_type.upper()} KPI documentation file not found."
     except Exception as e:
-        return f"Error loading HR KPI documentation: {str(e)}"
+        return f"Error loading {dataset_type.upper()} KPI documentation: {str(e)}"
 
 
-def _load_data_dictionary() -> str:
-    """Load and format data dictionary from CSV file."""
+def _load_data_dictionary(dataset_type: str = "hr") -> str:
+    """Load and format data dictionary from CSV file based on dataset type."""
     data_folder = _get_data_folder_path()
-    dd_file = data_folder / "HR_Data_Dictionary.csv"
+    
+    if dataset_type.lower() == "hr":
+        dd_file = data_folder / "hr_data" / "HR_Data_Dictionary.csv"
+        title = "HR EMPLOYEE ATTRITION DATA DICTIONARY"
+    elif dataset_type.lower() == "sales":
+        dd_file = data_folder / "sales_data" / "zalando_data_dictionary.csv"
+        title = "ZALANDO E-COMMERCE SALES DATA DICTIONARY"
+    else:
+        return f"Unknown dataset type: {dataset_type}"
     
     try:
         df = pd.read_csv(dd_file)
@@ -49,7 +64,7 @@ def _load_data_dictionary() -> str:
         df.columns = df.columns.str.strip()
         
         # Format the data dictionary into a readable string
-        dd_text = "HR EMPLOYEE ATTRITION DATA DICTIONARY:\n\n"
+        dd_text = f"{title}:\n\n"
         
         # Group by is_categorical for better organization
         dd_text += "CATEGORICAL VARIABLES:\n"
@@ -66,15 +81,21 @@ def _load_data_dictionary() -> str:
         
         return dd_text
     except FileNotFoundError:
-        return "Data dictionary file not found."
+        return f"{dataset_type.upper()} data dictionary file not found."
     except Exception as e:
-        return f"Error loading data dictionary: {str(e)}"
+        return f"Error loading {dataset_type.upper()} data dictionary: {str(e)}"
 
 
-def _create_dataset_context() -> str:
-    """Create dataset context from data dictionary."""
+def _create_dataset_context(dataset_type: str = "hr") -> str:
+    """Create dataset context from data dictionary based on dataset type."""
     data_folder = _get_data_folder_path()
-    dd_file = data_folder / "HR_Data_Dictionary.csv"
+    
+    if dataset_type.lower() == "hr":
+        dd_file = data_folder / "hr_data" / "HR_Data_Dictionary.csv"
+    elif dataset_type.lower() == "sales":
+        dd_file = data_folder / "sales_data" / "zalando_data_dictionary.csv"
+    else:
+        return f"Unknown dataset type: {dataset_type}"
     
     try:
         df = pd.read_csv(dd_file)
@@ -86,36 +107,69 @@ def _create_dataset_context() -> str:
         categorical_cols = df[df['is_categorical']]['Column Name'].tolist()
         numerical_cols = df[~df['is_categorical']]['Column Name'].tolist()
         
-        # Remove constant/non-useful columns
-        exclude_cols = ['employeecount', 'employeenumber', 'over18', 'standardhours']
-        categorical_cols = [col for col in categorical_cols if col not in exclude_cols]
-        numerical_cols = [col for col in numerical_cols if col not in exclude_cols]
-        
-        context = """HR EMPLOYEE ATTRITION DATASET OVERVIEW:
+        if dataset_type.lower() == "hr":
+            # Remove constant/non-useful columns for HR
+            exclude_cols = ['employeecount', 'employeenumber', 'over18', 'standardhours']
+            categorical_cols = [col for col in categorical_cols if col not in exclude_cols]
+            numerical_cols = [col for col in numerical_cols if col not in exclude_cols]
+            
+            context = """HR EMPLOYEE ATTRITION DATASET OVERVIEW:
 
-Dataset: wa_fn_usec
+Dataset: hr_data.wa_fn_usec
 Total Records: 1,470 employees
 Purpose: HR analytics data collection for employee attrition analysis
 
 AVAILABLE VARIABLES ({} columns):
 """.format(len(categorical_cols) + len(numerical_cols))
+            
+            # Group columns by category for HR
+            demo_cols = [c for c in df['Column Name'] if c in ['age', 'gender', 'maritalstatus', 'education', 'educationfield']]
+            job_cols = [c for c in df['Column Name'] if c in ['department', 'jobrole', 'joblevel', 'businesstravel', 'overtime']]
+            comp_cols = [c for c in df['Column Name'] if c in ['monthlyincome', 'dailyrate', 'hourlyrate', 'monthlyrate', 'percentsalaryhike', 'stockoptionlevel']]
+            exp_cols = [c for c in df['Column Name'] if c in ['totalworkingyears', 'yearsatcompany', 'yearsincurrentrole', 'yearssincelastpromotion', 'yearswithcurrmanager', 'numcompaniesworked']]
+            sat_cols = [c for c in df['Column Name'] if c in ['jobsatisfaction', 'environmentsatisfaction', 'relationshipsatisfaction', 'worklifebalance']]
+            perf_cols = [c for c in df['Column Name'] if c in ['performancerating', 'jobinvolvement', 'trainingtimeslastyear']]
+            
+            context += f"- Demographics: {', '.join(demo_cols)}\n"
+            context += f"- Job Information: {', '.join(job_cols)}\n"
+            context += f"- Compensation: {', '.join(comp_cols)}\n"
+            context += f"- Work Experience: {', '.join(exp_cols)}\n"
+            context += f"- Satisfaction Metrics: {', '.join(sat_cols)}\n"
+            context += f"- Performance & Engagement: {', '.join(perf_cols)}\n"
+            context += "- Attrition: attrition (Target variable: Yes/No)\n"
+            context += "- Other: distancefromhome\n\n"
         
-        # Group columns by category
-        demo_cols = [c for c in df['Column Name'] if c in ['age', 'gender', 'maritalstatus', 'education', 'educationfield']]
-        job_cols = [c for c in df['Column Name'] if c in ['department', 'jobrole', 'joblevel', 'businesstravel', 'overtime']]
-        comp_cols = [c for c in df['Column Name'] if c in ['monthlyincome', 'dailyrate', 'hourlyrate', 'monthlyrate', 'percentsalaryhike', 'stockoptionlevel']]
-        exp_cols = [c for c in df['Column Name'] if c in ['totalworkingyears', 'yearsatcompany', 'yearsincurrentrole', 'yearssincelastpromotion', 'yearswithcurrmanager', 'numcompaniesworked']]
-        sat_cols = [c for c in df['Column Name'] if c in ['jobsatisfaction', 'environmentsatisfaction', 'relationshipsatisfaction', 'worklifebalance']]
-        perf_cols = [c for c in df['Column Name'] if c in ['performancerating', 'jobinvolvement', 'trainingtimeslastyear']]
-        
-        context += f"- Demographics: {', '.join(demo_cols)}\n"
-        context += f"- Job Information: {', '.join(job_cols)}\n"
-        context += f"- Compensation: {', '.join(comp_cols)}\n"
-        context += f"- Work Experience: {', '.join(exp_cols)}\n"
-        context += f"- Satisfaction Metrics: {', '.join(sat_cols)}\n"
-        context += f"- Performance & Engagement: {', '.join(perf_cols)}\n"
-        context += "- Attrition: attrition (Target variable: Yes/No)\n"
-        context += "- Other: distancefromhome\n\n"
+        elif dataset_type.lower() == "sales":
+            # Remove ID columns for Sales
+            exclude_cols = ['orderid', 'customerid', 'productid']
+            categorical_cols = [col for col in categorical_cols if col not in exclude_cols]
+            numerical_cols = [col for col in numerical_cols if col not in exclude_cols]
+            
+            context = """ZALANDO E-COMMERCE SALES DATASET OVERVIEW:
+
+Dataset: sales_data.zalando_dummy_dataset
+Total Records: Sales transactions from major German cities
+Purpose: E-commerce sales analytics for consumer behavior and profitability analysis
+
+AVAILABLE VARIABLES ({} columns):
+""".format(len(categorical_cols) + len(numerical_cols))
+            
+            # Group columns by category for Sales
+            customer_cols = [c for c in df['Column Name'] if c in ['agegroup', 'gender', 'city', 'customersegment']]
+            product_cols = [c for c in df['Column Name'] if c in ['productname', 'category', 'subcategory', 'brand']]
+            transaction_cols = [c for c in df['Column Name'] if c in ['orderdate', 'orderstatus', 'devicetype', 'paymentmethod', 'promocodeused']]
+            channel_cols = [c for c in df['Column Name'] if c in ['acquisitionchannel']]
+            pricing_cols = [c for c in df['Column Name'] if c in ['price', 'cost', 'discount', 'revenue', 'profit']]
+            logistics_cols = [c for c in df['Column Name'] if c in ['shippingcost', 'deliverydays']]
+            feedback_cols = [c for c in df['Column Name'] if c in ['rating', 'reviewcount']]
+            
+            context += f"- Customer Demographics: {', '.join(customer_cols)}\n"
+            context += f"- Product Information: {', '.join(product_cols)}\n"
+            context += f"- Transaction Details: {', '.join(transaction_cols)}\n"
+            context += f"- Marketing Channel: {', '.join(channel_cols)}\n"
+            context += f"- Pricing & Profitability: {', '.join(pricing_cols)}, quantity\n"
+            context += f"- Logistics: {', '.join(logistics_cols)}\n"
+            context += f"- Customer Feedback: {', '.join(feedback_cols)}\n\n"
         
         context += "VARIABLE TYPES:\n"
         context += f"- Categorical: {', '.join(categorical_cols)}\n\n"
@@ -123,14 +177,25 @@ AVAILABLE VARIABLES ({} columns):
         
         return context
     except Exception as e:
-        return f"Error creating dataset context: {str(e)}"
+        return f"Error creating {dataset_type.upper()} dataset context: {str(e)}"
 
 
-def _create_hr_context() -> str:
-    """Create HR analytics context from data dictionary and KPI documentation."""
+def _create_analytics_context(dataset_type: str = "hr") -> str:
+    """Create analytics context from data dictionary and KPI documentation based on dataset type."""
     data_folder = _get_data_folder_path()
-    dd_file = data_folder / "HR_Data_Dictionary.csv"
-    kpi_file = data_folder / "hr_kpi_documentation.txt"
+    
+    if dataset_type.lower() == "hr":
+        dd_file = data_folder / "hr_data" / "HR_Data_Dictionary.csv"
+        kpi_file = data_folder / "hr_data" / "hr_kpi_documentation.txt"
+        table_name = "hr_data.wa_fn_usec"
+        domain_title = "HR Employee Attrition Analytics"
+    elif dataset_type.lower() == "sales":
+        dd_file = data_folder / "sales_data" / "zalando_data_dictionary.csv"
+        kpi_file = data_folder / "sales_data" / "zalando_kpi_documentation.txt"
+        table_name = "sales_data.zalando_dummy_dataset"
+        domain_title = "E-commerce Sales Analytics"
+    else:
+        return f"Unknown dataset type: {dataset_type}"
     
     try:
         df = pd.read_csv(dd_file)
@@ -142,24 +207,35 @@ def _create_hr_context() -> str:
         with open(kpi_file, 'r', encoding='utf-8') as f:
             kpi_content = f.read()
         
-        context = """DOMAIN: HR Employee Attrition Analytics
+        context = f"""DOMAIN: {domain_title}
 
 ================================================================================
-AVAILABLE DATA FIELDS (hr_data.wa_fn_usec table):
+AVAILABLE DATA FIELDS ({table_name} table):
 ================================================================================
 
 """
         
-        # Group fields by category with descriptions
-        categories = {
-            'DEMOGRAPHIC INFORMATION': ['age', 'gender', 'maritalstatus', 'education', 'educationfield'],
-            'JOB INFORMATION': ['department', 'jobrole', 'joblevel', 'monthlyincome', 'dailyrate', 'hourlyrate', 'monthlyrate', 'percentsalaryhike'],
-            'WORK-LIFE FACTORS': ['overtime', 'businesstravel', 'distancefromhome', 'worklifebalance'],
-            'SATISFACTION METRICS': ['jobsatisfaction', 'environmentsatisfaction', 'relationshipsatisfaction', 'jobinvolvement'],
-            'CAREER PROGRESSION': ['yearsatcompany', 'yearsincurrentrole', 'yearssincelastpromotion', 'yearswithcurrmanager', 'totalworkingyears', 'numcompaniesworked', 'trainingtimeslastyear'],
-            'PERFORMANCE & COMPENSATION': ['performancerating', 'stockoptionlevel'],
-            'TARGET VARIABLE': ['attrition']
-        }
+        # Dataset-specific field categorization
+        if dataset_type.lower() == "hr":
+            categories = {
+                'DEMOGRAPHIC INFORMATION': ['age', 'gender', 'maritalstatus', 'education', 'educationfield'],
+                'JOB INFORMATION': ['department', 'jobrole', 'joblevel', 'monthlyincome', 'dailyrate', 'hourlyrate', 'monthlyrate', 'percentsalaryhike'],
+                'WORK-LIFE FACTORS': ['overtime', 'businesstravel', 'distancefromhome', 'worklifebalance'],
+                'SATISFACTION METRICS': ['jobsatisfaction', 'environmentsatisfaction', 'relationshipsatisfaction', 'jobinvolvement'],
+                'CAREER PROGRESSION': ['yearsatcompany', 'yearsincurrentrole', 'yearssincelastpromotion', 'yearswithcurrmanager', 'totalworkingyears', 'numcompaniesworked', 'trainingtimeslastyear'],
+                'PERFORMANCE & COMPENSATION': ['performancerating', 'stockoptionlevel'],
+                'TARGET VARIABLE': ['attrition']
+            }
+        else:  # sales
+            categories = {
+                'CUSTOMER INFORMATION': ['agegroup', 'gender', 'city', 'customersegment'],
+                'PRODUCT INFORMATION': ['productname', 'category', 'subcategory', 'brand'],
+                'TRANSACTION DETAILS': ['orderdate', 'orderstatus', 'devicetype', 'paymentmethod', 'promocodeused'],
+                'MARKETING & ACQUISITION': ['acquisitionchannel'],
+                'PRICING & REVENUE': ['price', 'cost', 'quantity', 'discount', 'revenue', 'profit'],
+                'LOGISTICS & DELIVERY': ['shippingcost', 'deliverydays'],
+                'CUSTOMER FEEDBACK': ['rating', 'reviewcount']
+            }
         
         for category, fields in categories.items():
             context += f"{category}:\n"
@@ -175,11 +251,17 @@ AVAILABLE DATA FIELDS (hr_data.wa_fn_usec table):
             context += "\n"
         
         context += """================================================================================
-KEY HR METRICS & KPIs:
+KEY METRICS & KPIs:
 ================================================================================
 
 """
-        context += kpi_content.split('HR KPI DOCUMENTATION')[1].split('End of Document')[0].strip()
+        # Extract KPI section from the KPI documentation
+        if dataset_type.lower() == "hr":
+            kpi_section = kpi_content.split('HR KPI DOCUMENTATION')[1].split('End of Document')[0].strip() if 'HR KPI DOCUMENTATION' in kpi_content else kpi_content
+        else:
+            kpi_section = kpi_content.split('Zalando E‑Commerce KPI Documentation')[1].split('End of Document')[0].strip() if 'Zalando' in kpi_content else kpi_content
+        
+        context += kpi_section
         
         context += """
 
@@ -189,18 +271,22 @@ ANALYSIS CAPABILITIES:
 
 1. DESCRIPTIVE ANALYTICS (WHAT Questions):
    - Counts, sums, averages, distributions
-   - Group-by analysis (by department, role, gender, etc.)
+   - Group-by analysis (by category, segment, location, etc.)
    - Cross-tabulations and comparisons
    - Trend analysis over time
-   - KPI calculations (attrition rate, average salary, etc.)
+   - KPI calculations
 
 2. CAUSAL ANALYTICS (WHY Questions):
    - Hypothesis generation and testing
    - Statistical significance testing (t-tests, chi-square, ANOVA)
    - Correlation and relationship analysis
-   - Impact analysis (effect of overtime, satisfaction, etc.)
-   - Root cause analysis for attrition
-
+   - Impact analysis
+   - Root cause analysis
+"""
+        
+        # Add dataset-specific scenarios
+        if dataset_type.lower() == "hr":
+            context += """
 ================================================================================
 COMMON ANALYSIS SCENARIOS:
 ================================================================================
@@ -219,20 +305,55 @@ WHY Questions:
 - "Is there a gender pay gap?"
 - "Why do certain departments have higher turnover?"
 """
+        else:  # sales
+            context += """
+================================================================================
+COMMON ANALYSIS SCENARIOS:
+================================================================================
+
+WHAT Questions:
+- "What is the total revenue by city?"
+- "How many orders were returned?"
+- "What's the average order value by category?"
+- "Show revenue distribution across acquisition channels"
+- "Compare profit margins between product categories"
+
+WHY Questions:
+- "Why do customers return products?"
+- "Does discount percentage affect profit margin?"
+- "What factors influence customer ratings?"
+- "Is there a relationship between delivery time and returns?"
+- "Why do certain categories have higher return rates?"
+"""
         
         return context
     except Exception as e:
-        return f"Error creating HR context: {str(e)}"
+        return f"Error creating {dataset_type.upper()} analytics context: {str(e)}"
+
+
+# Deprecated - kept for backward compatibility
+def _create_hr_context() -> str:
+    """Deprecated: Use _create_analytics_context('hr') instead."""
+    return _create_analytics_context('hr')
 
 
 # ═══════════════════════════════════════════════════════════
 # LOAD CONTEXT AND DATA DICTIONARY FROM FILES
 # ═══════════════════════════════════════════════════════════
 
-# Load the actual content from files
-HR_CONTEXT = _create_hr_context()
-DATASET_CONTEXT = _create_dataset_context()
-DATA_DICTIONARY = _load_data_dictionary()
+# Load the actual content from files - DEFAULT TO HR (can be overridden dynamically)
+# For dynamic dataset selection, use the functions directly with dataset_type parameter
+HR_CONTEXT = _create_analytics_context('hr')
+HR_DATASET_CONTEXT = _create_dataset_context('hr')
+HR_DATA_DICTIONARY = _load_data_dictionary('hr')
+
+SALES_CONTEXT = _create_analytics_context('sales')
+SALES_DATASET_CONTEXT = _create_dataset_context('sales')
+SALES_DATA_DICTIONARY = _load_data_dictionary('sales')
+
+# Backward compatibility - default to HR
+DATASET_CONTEXT = HR_DATASET_CONTEXT
+DATA_DICTIONARY = HR_DATA_DICTIONARY
 
 
 # ═══════════════════════════════════════════════════════════
@@ -244,11 +365,12 @@ TEXT_TO_SQL_SYSTEM_PROMPT = """You are an expert PostgreSQL query generator. Gen
 # CORE RULES
 1. Return ONLY raw SQL - no markdown, no explanations, no thinking tags
 2. All table/column names are LOWERCASE
-3. ⚠️ CRITICAL: Always use the FULL table name with schema: hr_data.wa_fn_usec
+3. ⚠️ CRITICAL: Always use the FULL table name with schema: {schema_table}
 4. Only SELECT queries allowed (no INSERT/UPDATE/DELETE/DROP/ALTER/CREATE)
-5. Use ONLY columns from the schema below
-6. For ambiguous questions, make reasonable assumptions based on HR context
-7. ⚠️ CRITICAL: Use EXACT column names - watch for spelling (e.g., 'businesstravel' NOT 'businestravel')
+5. Use ONLY columns from the schema below - verify column names exist
+6. For ambiguous questions, make reasonable assumptions based on domain context
+7. ⚠️ CRITICAL: Use EXACT column names - watch for spelling
+8. For date columns (orderdate), use proper date functions and casting
 
 # CRITICAL: PERCENTAGE CALCULATIONS
 PostgreSQL uses integer division by default. Always cast to numeric:
@@ -262,7 +384,7 @@ Question: "What is the [rate] for [specific group]?"
 Solution: Use WHERE to filter, then calculate rate
 ```sql
 SELECT ROUND((COUNT(CASE WHEN condition THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) as rate
-FROM hr_data.wa_fn_usec
+FROM {schema_table}
 WHERE filter_condition;
 ```
 
@@ -273,53 +395,63 @@ Solution: Use GROUP BY
 SELECT grouping_column, 
        COUNT(*) as total,
        ROUND((COUNT(CASE WHEN condition THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) as rate
-FROM hr_data.wa_fn_usec
+FROM {schema_table}
 GROUP BY grouping_column
 ORDER BY rate DESC;
 ```
 
-## Pattern 3: Derived Groupings (Age buckets, salary bands)
-Question: "How does metric vary across derived groups like age buckets?"
+## Pattern 3: Derived Groupings (Age buckets, price ranges, time periods)
+Question: "How does metric vary across derived groups?"
 Solution: Calculate the derived value inline in the main SELECT and reuse the SAME expression in GROUP BY.
-⚠️ IMPORTANT: Do NOT wrap hr_data.wa_fn_usec inside a subquery that only keeps the derived column—doing so removes columns like attrition needed for aggregation.
+⚠️ IMPORTANT: Do NOT wrap table inside a subquery that only keeps the derived column—doing so removes columns needed for aggregation.
 ```sql
 SELECT FLOOR(age / 10) * 10 AS age_group,
-       COUNT(*) AS total_employees,
-       COUNT(CASE WHEN attrition='Yes' THEN 1 END) AS employees_left,
-       ROUND((COUNT(CASE WHEN attrition='Yes' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) AS attrition_rate
-FROM hr_data.wa_fn_usec
+       COUNT(*) AS total,
+       ROUND((COUNT(CASE WHEN condition THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) AS rate
+FROM {schema_table}
 GROUP BY FLOOR(age / 10) * 10
 ORDER BY age_group;
 ```
-If a subquery is absolutely necessary, ensure it SELECTs every column referenced outside of it (e.g., attrition).
+
+## Pattern 4: Time-based Analysis (for datasets with date columns)
+Question: "Show revenue by month"
+Solution: Use date functions to extract time periods
+```sql
+SELECT TO_CHAR(orderdate::date, 'YYYY-MM') AS month,
+       SUM(revenue) as total_revenue
+FROM {schema_table}
+GROUP BY TO_CHAR(orderdate::date, 'YYYY-MM')
+ORDER BY month;
+```
 
 # DATABASE SCHEMA
 ```sql
 {schema}
 ```
 
-# FEW-SHOT EXAMPLES
+# FEW-SHOT EXAMPLES (adapt table name based on dataset)
 
-Example 1:
+Example 1 (HR):
 Q: What is the male attrition rate?
 A: SELECT ROUND((COUNT(CASE WHEN attrition='Yes' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) as male_attrition_rate FROM hr_data.wa_fn_usec WHERE gender = 'Male'
 
-Example 2:
+Example 2 (HR):
 Q: Compare attrition rates between genders
 A: SELECT gender, COUNT(*) as total_employees, COUNT(CASE WHEN attrition='Yes' THEN 1 END) as employees_left, ROUND((COUNT(CASE WHEN attrition='Yes' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) as attrition_rate FROM hr_data.wa_fn_usec GROUP BY gender ORDER BY gender
 
-Example 3:
-Q: Show average salary by department
-A: SELECT department, COUNT(*) as employee_count, ROUND(AVG(monthlyincome)::numeric, 2) as avg_salary FROM hr_data.wa_fn_usec GROUP BY department ORDER BY avg_salary DESC
+Example 3 (Sales):
+Q: What is the total revenue by city?
+A: SELECT city, SUM(revenue) as total_revenue, COUNT(*) as total_orders FROM sales_data.zalando_dummy_dataset GROUP BY city ORDER BY total_revenue DESC
 
-Example 4:
-Q: How does attrition vary across different age groups?
-A: SELECT FLOOR(age / 10) * 10 AS age_group, COUNT(*) AS total_employees, COUNT(CASE WHEN attrition='Yes' THEN 1 END) AS employees_left, ROUND((COUNT(CASE WHEN attrition='Yes' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) AS attrition_rate FROM hr_data.wa_fn_usec GROUP BY FLOOR(age / 10) * 10 ORDER BY age_group
+Example 4 (Sales):
+Q: Show return rate by product category
+A: SELECT category, COUNT(*) as total_orders, COUNT(CASE WHEN orderstatus='Returned' THEN 1 END) as returned_orders, ROUND((COUNT(CASE WHEN orderstatus='Returned' THEN 1 END)::numeric / COUNT(*)::numeric) * 100, 2) as return_rate FROM sales_data.zalando_dummy_dataset GROUP BY category ORDER BY return_rate DESC
 
 # IMPORTANT REMINDERS
 - ALWAYS cast to ::numeric for division operations
 - Use WHERE for single-group filters
 - Use GROUP BY for comparisons
+- Use appropriate date functions for time-based analysis
 - Return ONLY the SQL query
 """
 
@@ -458,7 +590,7 @@ Generate {{num_hypotheses}} bivariate hypotheses to explore this question."""
 # PLANNER AGENT PROMPTS
 # ═══════════════════════════════════════════════════════════
 
-PLANNER_SYSTEM_PROMPT = """You are an EXPERT HR Analytics Planner Agent. Your job is to analyze user questions and determine the appropriate analytical approach.
+PLANNER_SYSTEM_PROMPT = """You are an EXPERT Analytics Planner Agent. Your job is to analyze user questions and determine the appropriate analytical approach.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL TASK:
@@ -467,23 +599,27 @@ Analyze the user's question and classify it into ONE of two categories:
 
 1. **WHAT Questions** (Descriptive Analytics):
    - Asking for FACTS, COUNTS, AVERAGES, DISTRIBUTIONS
-   - Examples:
+   - Examples (HR):
      * "What is the attrition rate?"
      * "How many employees are in each department?"
      * "What is the average salary by job role?"
-     * "Show me the distribution of overtime workers"
-     * "Compare attrition rates between departments"
-   - Keywords: what, how many, show, list, compare, distribution, average, count
+   - Examples (Sales):
+     * "What is the total revenue by city?"
+     * "How many orders were returned?"
+     * "Show revenue distribution by category"
+   - Keywords: what, how many, show, list, compare, distribution, average, count, total
    - **Route to:** Text-to-SQL Agent (EDA) + Visualization Agent
 
 2. **WHY Questions** (Causal Analytics):
    - Asking for REASONS, CAUSES, EXPLANATIONS, RELATIONSHIPS
-   - Examples:
+   - Examples (HR):
      * "Why do employees leave?"
-     * "What causes high attrition?"
      * "Does overtime affect attrition?"
-     * "Is there a relationship between satisfaction and turnover?"
-     * "Why do male employees have higher attrition?"
+     * "What causes high satisfaction?"
+   - Examples (Sales):
+     * "Why do customers return products?"
+     * "Does discount affect profit margin?"
+     * "What factors influence customer ratings?"
    - Keywords: why, cause, reason, affect, impact, relationship, correlation, influence
    - **Route to:** Hypothesis Agent + Statistical Testing Agent
 

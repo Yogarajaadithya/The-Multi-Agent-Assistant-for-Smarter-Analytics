@@ -16,13 +16,19 @@ from langchain_community.utilities import SQLDatabase
 load_dotenv(override=True)
 
 
-def get_database_connection():
+def get_database_connection(schema_name: str = None):
     """
     Create and return a database connection.
     
+    Args:
+        schema_name: Optional schema name to set as search_path
+        
     Returns:
         SQLDatabase instance connected to PostgreSQL
     """
+    if schema_name is None:
+        schema_name = os.getenv("DEFAULT_DATASET", "hr_data")
+    
     encoded_pw = quote_plus(os.getenv("DB_PASSWORD"))
     postgres_url = (
         f"postgresql+psycopg2://{os.getenv('DB_USER')}:{encoded_pw}"
@@ -31,30 +37,40 @@ def get_database_connection():
     
     db = SQLDatabase.from_uri(
         postgres_url,
-        engine_args={"connect_args": {"options": f"-csearch_path={os.getenv('DB_SCHEMA', 'public')}"}}
+        engine_args={"connect_args": {"options": f"-csearch_path={schema_name}"}}
     )
     
     return db
 
 
-def get_structured_schema(db: SQLDatabase = None) -> str:
-    """Generate CREATE TABLE style schema representation dynamically from database."""
-    if db is None:
-        db = get_database_connection()
+def get_structured_schema(db: SQLDatabase = None, schema_name: str = None, table_name: str = None) -> str:
+    """
+    Generate CREATE TABLE style schema representation dynamically from database.
     
-    schema_name = os.getenv('DB_SCHEMA', 'public')
-    table_name = os.getenv('DB_TABLE', 'wa_fn_usec')
+    Args:
+        db: SQLDatabase connection (creates new if None)
+        schema_name: Schema name (uses DEFAULT_DATASET if None)
+        table_name: Table name (uses dataset's main table if None)
+    
+    Returns:
+        str: CREATE TABLE statement with columns
+    """
+    if db is None:
+        db = get_database_connection(schema_name)
+    
+    if schema_name is None:
+        schema_name = os.getenv('DEFAULT_DATASET', 'hr_data')
+    
+    if table_name is None:
+        # Get table name from dataset manager
+        from app.services.dataset_manager import get_dataset_manager
+        dataset_manager = get_dataset_manager()
+        table_name = dataset_manager.get_table_name()
+    
     full_table_name = f"{schema_name}.{table_name}"
     
     try:
-        # Get table schema from database
-        table_info = db.get_table_info()
-        
-        # If the table info is available, return it
-        if table_info and table_info.strip():
-            return table_info
-        
-        # Fallback: Query information_schema directly
+        # Query information_schema directly for the specific table
         query = f"""
         SELECT 
             column_name,
@@ -147,9 +163,12 @@ def validate_sql(sql: str) -> bool:
     if not sql_lower.startswith('select'):
         raise ValueError("Only SELECT queries are allowed")
     
-    # Get expected table name from environment
-    schema_name = os.getenv('DB_SCHEMA', 'public')
-    table_name = os.getenv('DB_TABLE', 'wa_fn_usec')
+    # Get expected table name from dataset manager
+    from app.services.dataset_manager import get_dataset_manager
+    dataset_manager = get_dataset_manager()
+    current_dataset = dataset_manager.get_current_dataset()
+    schema_name = current_dataset.schema_name
+    table_name = current_dataset.main_table
     full_table_name = f"{schema_name}.{table_name}"
     
     # Must reference the correct table with schema

@@ -6,7 +6,7 @@ import CodeBlock from '../components/CodeBlock';
 import Tabs from '../components/Tabs';
 import AgentActivityPopup from '../components/AgentActivityPopup';
 import { EXAMPLE_PROMPTS } from '../lib/api';
-import { sendAnalyticsQuery } from '../api/client';
+import { sendAnalyticsQuery, getDatasets, switchDataset, getCurrentDataset } from '../api/client';
 
 const STORAGE_KEY = 'analytics-history';
 
@@ -31,6 +31,15 @@ interface LogEntry {
   agent?: string;
 }
 
+interface Dataset {
+  id: string;
+  name: string;
+  description: string;
+  schema_name: string;
+  main_table: string;
+  is_active: boolean;
+}
+
 export default function AnalyticsAssistant() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -42,13 +51,38 @@ export default function AnalyticsAssistant() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [activityPopupOpen, setActivityPopupOpen] = useState(false);
   const [agentLogs, setAgentLogs] = useState<LogEntry[]>([]);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [currentDataset, setCurrentDataset] = useState<Dataset | null>(null);
+  const [datasetMenuOpen, setDatasetMenuOpen] = useState(false);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem(STORAGE_KEY);
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory));
     }
+    
+    // Load datasets and current dataset
+    loadDatasets();
   }, []);
+
+  const loadDatasets = async () => {
+    try {
+      const [datasetsResponse, currentResponse] = await Promise.all([
+        getDatasets(),
+        getCurrentDataset()
+      ]);
+      
+      if (datasetsResponse.success) {
+        setDatasets(datasetsResponse.datasets);
+      }
+      
+      if (currentResponse.success) {
+        setCurrentDataset(currentResponse.dataset);
+      }
+    } catch (error) {
+      console.error('Failed to load datasets:', error);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -63,6 +97,19 @@ export default function AnalyticsAssistant() {
     return () => window.removeEventListener('resize', updateBreakpoint);
   }, []);
 
+  useEffect(() => {
+    // Close dataset menu when clicking outside
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (datasetMenuOpen && !target.closest('.dataset-menu-container')) {
+        setDatasetMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [datasetMenuOpen]);
+
   const saveHistory = (items: HistoryItem[]) => {
     setHistory(items);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -71,6 +118,40 @@ export default function AnalyticsAssistant() {
   const addLog = (message: string, level: string = 'info', agent?: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setAgentLogs(prev => [...prev, { timestamp, level, message, agent }]);
+  };
+
+  const handleDatasetSwitch = async (datasetId: string) => {
+    if (isLoading) return;
+    
+    try {
+      setDatasetMenuOpen(false);
+      addLog(`Switching to dataset: ${datasetId}`, 'info', 'System');
+      
+      const response = await switchDataset(datasetId);
+      
+      if (response.success) {
+        setCurrentDataset(response.dataset);
+        addLog(`Switched to ${response.dataset.name}`, 'success', 'System');
+        
+        // Update datasets list to reflect active state
+        setDatasets(prev => prev.map(ds => ({
+          ...ds,
+          is_active: ds.id === datasetId
+        })));
+        
+        // Add system message to chat
+        const systemMessage = {
+          id: Date.now().toString(),
+          role: 'assistant' as const,
+          text: `Dataset switched to **${response.dataset.name}**\n\n${response.dataset.description}\n\nYou can now ask questions about this dataset.`,
+          ts: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, systemMessage]);
+      }
+    } catch (error) {
+      console.error('Failed to switch dataset:', error);
+      addLog('Failed to switch dataset', 'error', 'System');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -357,6 +438,69 @@ export default function AnalyticsAssistant() {
               )}
               <span className="sr-only">Toggle history</span>
             </button>
+            
+            {/* Dataset Switcher */}
+            <div className="relative dataset-menu-container">
+              <button
+                onClick={() => setDatasetMenuOpen(!datasetMenuOpen)}
+                disabled={isLoading}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 text-purple-200 hover:from-purple-500/20 hover:to-pink-500/20 hover:border-purple-400/40 transition-all duration-200 shadow-lg shadow-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Switch Dataset"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                <span className="text-sm font-medium hidden sm:inline">
+                  {currentDataset ? currentDataset.name : 'Select Dataset'}
+                </span>
+                <svg className={`w-4 h-4 transition-transform ${datasetMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {/* Dropdown Menu */}
+              {datasetMenuOpen && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-gray-900 border border-purple-500/30 rounded-xl shadow-2xl shadow-purple-500/20 z-50 overflow-hidden">
+                  <div className="p-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-purple-500/20">
+                    <p className="text-xs font-semibold text-purple-200">Available Datasets</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {datasets.map(dataset => (
+                      <button
+                        key={dataset.id}
+                        onClick={() => handleDatasetSwitch(dataset.id)}
+                        disabled={dataset.is_active || isLoading}
+                        className={`w-full px-4 py-3 text-left transition-all duration-200 ${
+                          dataset.is_active
+                            ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-l-4 border-purple-500'
+                            : 'hover:bg-purple-500/10 border-l-4 border-transparent hover:border-purple-500/50'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-medium ${dataset.is_active ? 'text-purple-200' : 'text-gray-200'}`}>
+                                {dataset.name}
+                              </span>
+                              {dataset.is_active && (
+                                <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-300 rounded-full border border-green-500/30">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">{dataset.description}</p>
+                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                              <span>Table: {dataset.main_table}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <div className="flex-1 text-center">
                 <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-teal-500/10 border border-cyan-500/20 shadow-lg shadow-cyan-500/20">
                 <div className="flex items-center gap-2">

@@ -1,0 +1,318 @@
+
+Zalando E‑Commerce KPI Documentation
+===================================
+
+This document defines key performance indicators (KPIs) for analysing the Zalando sales dataset.  Each metric includes a brief Meaning and a Calculation formula.  These KPIs cover revenue, profitability, marketing effectiveness, customer behaviour and operational efficiency, and they are designed to support a broad range of e‑commerce analyses.
+
+--------------------------------------------------------------------------------
+
+1. Total Orders
+
+   Meaning: The total number of transactions recorded in the dataset.  It provides the basic volume of sales activity.
+
+   Calculation:
+
+   Total Orders = COUNT(OrderID)
+
+--------------------------------------------------------------------------------
+
+2. Total Revenue
+
+   Meaning: The sum of revenue generated from all orders after discounts.  This represents the top‑line sales figure.
+
+   Calculation:
+
+   Total Revenue = SUM(Revenue)
+
+--------------------------------------------------------------------------------
+
+3. Total Profit
+
+   Meaning: The sum of profit generated from all orders.  Profit is calculated as revenue minus the cost of goods and shipping.
+
+   Calculation:
+
+   Total Profit = SUM(Profit)
+
+--------------------------------------------------------------------------------
+
+4. Average Order Value (AOV)
+
+   Meaning: The average amount a customer spends per transaction.  A higher AOV indicates that customers are buying more items or more expensive items per purchase.
+
+   Calculation:
+
+   Average Order Value = Total Revenue ÷ Total Orders
+
+--------------------------------------------------------------------------------
+
+5. Average Profit per Order
+
+   Meaning: The average profit earned on each order.  This helps evaluate the profitability of individual transactions.
+
+   Calculation:
+
+   Average Profit per Order = Total Profit ÷ Total Orders
+
+--------------------------------------------------------------------------------
+
+6. Gross Margin Percentage (GM%)
+
+   Meaning: Shows the percentage of revenue retained as profit after accounting for the cost of goods sold and shipping.  A higher margin indicates more efficient cost management.
+
+   Calculation:
+
+   Gross Margin % = (Total Profit ÷ Total Revenue) × 100
+
+--------------------------------------------------------------------------------
+
+7. Average Discount Percentage
+
+   Meaning: The average discount applied across all orders.  This reveals how frequently discounts are used and their typical magnitude.
+
+   Calculation:
+
+   Average Discount % = SUM(Discount) ÷ Total Orders
+
+--------------------------------------------------------------------------------
+
+8. Discount Usage Rate
+
+   Meaning: The proportion of orders that include any discount.  This metric gauges customer responsiveness to markdowns.
+
+   Calculation:
+
+   Discount Usage Rate = (Number of orders where Discount > 0 ÷ Total Orders) × 100
+
+--------------------------------------------------------------------------------
+
+9. Promo Code Usage Rate
+
+   Meaning: The share of orders where a promotional code was applied.  It measures the effectiveness and adoption of promo campaigns.
+
+   Calculation:
+
+   Promo Code Usage Rate = (Number of orders with PromoCodeUsed = 'Yes' ÷ Total Orders) × 100
+
+--------------------------------------------------------------------------------
+
+10. Average Quantity per Order
+
+   Meaning: The average number of units purchased per order.  Higher quantities can reflect bulk buying or strong product bundling.
+
+   Calculation:
+
+   Average Quantity per Order = SUM(Quantity) ÷ Total Orders
+
+--------------------------------------------------------------------------------
+
+11. Return Rate
+
+   Meaning: The percentage of orders that are returned.  Returns erode revenue and profitability, so tracking this rate helps identify issues with product quality or customer
+
+   Calculation:
+
+   Return Rate = (Number of orders with OrderStatus = 'Returned' ÷ Total Orders) × 100
+
+--------------------------------------------------------------------------------
+
+12. Cancelled Order Rate
+
+   Meaning: The proportion of orders that are cancelled before completion.  High cancellation rates may signal payment issues or buyer hesitation.
+
+   Calculation:
+
+   Cancelled Order Rate = (Number of orders with OrderStatus = 'Cancelled' ÷ Total Orders) × 100
+
+--------------------------------------------------------------------------------
+
+13. Average Delivery Time
+
+   Meaning: Measures the average number of days required to deliver products to customers.  It reflects logistics efficiency and affects customer satisfaction.
+
+   Calculation:
+
+   Average Delivery Time = AVERAGE(DeliveryDays)
+
+--------------------------------------------------------------------------------
+
+14. Average Rating
+
+   Meaning: The average customer rating across all reviewed orders.  High ratings indicate strong product satisfaction and brand perception.
+
+   Calculation:
+
+   Average Rating = AVERAGE(Rating)
+
+--------------------------------------------------------------------------------
+
+15. Review Rate
+
+   Meaning: Measures how actively customers leave reviews.  It is the average number of reviews per order.
+
+   Calculation:
+
+   Review Rate = SUM(ReviewCount) ÷ Total Orders
+
+--------------------------------------------------------------------------------
+
+16. Repeat Customer Rate
+
+   Meaning: The percentage of customers who have made more than one purchase.  A higher repeat rate implies good customer retention
+   Calculation:
+
+   Repeat Customer Rate = (Number of customers with ≥2 orders ÷ Total unique customers) × 100
+
+--------------------------------------------------------------------------------
+
+17. Customer Retention Rate
+
+   Meaning: Evaluates how well the business retains its customer base over a period. While the provided dataset covers a single period, this metric is useful when comparing multiple periods.
+
+   Calculation:
+
+   Customer Retention Rate = ((Customers at end of period – Customers acquired during period) ÷ Customers at beginning of period) × 100
+
+--------------------------------------------------------------------------------
+
+18. Customer Lifetime Value (CLV)
+
+   Meaning: Estimates the total revenue expected from an average customer over their entire relationship with the business CLV.  CLV helps determine how much can be spent to acquire and retain customers.
+
+   Calculation:
+
+   Customer Lifetime Value = Average Order Value × Purchase Frequency × Average Customer Lifespan
+
+   *Purchase frequency* can be computed as `Total Orders ÷ Total unique customers`, and *average customer lifespan* is the average number of periods (e.g., years) customers continue to buy.
+
+--------------------------------------------------------------------------------
+
+19. Revenue by Acquisition Channel
+
+   Meaning: Breaks down revenue by the marketing channel through which customers were acquired (e.g., Organic, Paid Search, Email, Social).  This supports channel optimization.
+
+   Calculation:
+
+   Revenue by Channel = SUM(Revenue) grouped by AcquisitionChannel
+
+   Percentages can be calculated by dividing each channel’s revenue by the total revenue.
+
+--------------------------------------------------------------------------------
+
+20. Average Order Value by Acquisition Channel
+
+   Meaning: Measures how much customers acquired through each channel spend on average.  This identifies high‑value channels and those where cart sizes are smaller.
+
+   Calculation:
+
+   AOV by Channel = Revenue by Channel ÷ Number of orders from that channel
+
+--------------------------------------------------------------------------------
+
+21. Revenue Share by Category
+
+   Meaning: Shows the contribution of each product category (e.g., clothing, shoes, accessories) to overall revenue.  Useful for assortment planning and merchandising.
+
+   Calculation:
+
+   Revenue Share by Category = (Revenue of Category ÷ Total Revenue) × 100
+
+--------------------------------------------------------------------------------
+
+22. Revenue Share by City
+
+   Meaning: Measures revenue contribution by customer location.  It helps identify regional demand patterns and informs local marketing strategies.
+
+   Calculation:
+
+   Revenue Share by City = (Revenue of City ÷ Total Revenue) × 100
+
+--------------------------------------------------------------------------------
+
+23. Revenue Share by Device Type
+
+   Meaning: Breaks down revenue by device used (Mobile, Desktop, Tablet).  This guides responsive design and device‑specific marketing investments.
+
+   Calculation:
+
+   Revenue Share by Device Type = (Revenue from Device ÷ Total Revenue) × 100
+
+--------------------------------------------------------------------------------
+
+24. Average Discounted Order Value
+
+   Meaning: The average revenue per order when a discount is applied.  This helps assess the impact of promotions on order value.
+
+   Calculation:
+
+   Average Discounted Order Value = SUM(Revenue for orders with Discount > 0) ÷ Number of orders with Discount > 0
+
+--------------------------------------------------------------------------------
+
+25. Return Rate by Product Category
+
+   Meaning: Identifies which product categories have the highest return rates, allowing for targeted quality or sizing improvements.
+
+   Calculation:
+
+   Return Rate by Category = (Number of returned orders in Category ÷ Total orders in Category) × 100
+
+--------------------------------------------------------------------------------
+
+26. Seasonal Sales Distribution
+
+   Meaning: Compares revenue across seasons or months to identify peak and off‑peak periods.  This metric supports inventory planning and marketing campaigns.
+
+   Calculation:
+
+   Seasonal Sales = SUM(Revenue) grouped by month or quarter
+
+   Percentages can be calculated by dividing each period’s revenue by total revenue.
+
+--------------------------------------------------------------------------------
+
+27. Average Shipping Cost per Order
+
+   Meaning: Provides the average logistics cost incurred per order.  Monitoring shipping cost helps manage margins and negotiate rates.
+
+   Calculation:
+
+   Average Shipping Cost per Order = SUM(ShippingCost) ÷ Total Orders
+
+--------------------------------------------------------------------------------
+
+28. Gross Revenue and Profit by Brand
+
+   Meaning: Measures how much revenue and profit each brand contributes.  Useful for vendor negotiations and assortment decisions.
+
+   Calculation:
+
+   Brand Revenue = SUM(Revenue) grouped by Brand
+
+   Brand Profit = SUM(Profit) grouped by Brand
+
+--------------------------------------------------------------------------------
+
+29. Cart Abandonment Rate (Conceptual)
+
+   Meaning: The percentage of shopping sessions that add items to the cart but do not complete the purchase.  Though the current dataset lacks web‑traffic data, the metric is included for completeness
+
+   Calculation:
+
+   Cart Abandonment Rate = 1 – (Completed purchases ÷ Number of initiated carts) × 100
+
+--------------------------------------------------------------------------------
+
+30. Net Promoter Score (NPS) (Conceptual)
+
+   Meaning: Measures how likely customers are to recommend the company to others NPS.  NPS requires survey data and is not directly computed from this dataset, but it is noted here as an important e‑commerce KPI.
+
+   Calculation:
+
+   NPS = Percentage of promoters – Percentage of detractors
+
+   *Promoters* are respondents who rate their likelihood of recommending the company at the highest scores (e.g., 9–10 on a 10‑point scale).  *Detractors* are those who rate it low (e.g., 0–6).  Passives (middle ratings) are excluded from the calculation.
+
+--------------------------------------------------------------------------------
+
+End of Document

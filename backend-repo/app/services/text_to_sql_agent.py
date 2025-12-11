@@ -15,6 +15,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_community.utilities import SQLDatabase
 
 from app.prompts.prompts import text_to_sql_agent_prompt
+from app.services.dataset_manager import get_dataset_manager
 from app.utils.text_to_sql_utils import (
     get_database_connection,
     get_structured_schema,
@@ -61,18 +62,26 @@ async def text_to_sql_agent(user_query: str, llm, db: SQLDatabase = None, contex
         if db is None:
             db = get_database_connection()
         
-        # Get schema dynamically
-        schema = get_structured_schema(db)
-        
-        # Get schema and table name for the prompt
-        import os
-        schema_name = os.getenv('DB_SCHEMA', 'public')
-        table_name = os.getenv('DB_TABLE', 'wa_fn_usec')
+        # Get current dataset from dataset manager
+        dataset_manager = get_dataset_manager()
+        current_dataset = dataset_manager.get_current_dataset()
+        schema_name = current_dataset.schema_name
+        table_name = current_dataset.main_table
         schema_table = f"{schema_name}.{table_name}"
+        
+        # Get schema dynamically
+        schema = get_structured_schema(db, schema_name, table_name)
+        
+        # Debug: Print schema being used
+        print(f"\n[DEBUG] Dataset: {current_dataset.name}")
+        print(f"[DEBUG] Schema Name: {schema_name}")
+        print(f"[DEBUG] Table Name: {table_name}")
+        print(f"[DEBUG] Schema Table: {schema_table}")
+        print(f"[DEBUG] Schema:\n{schema[:500]}...")  # Print first 500 chars
         
         # Default context if not provided
         if context is None:
-            context = f"This is a {table_name} table in the {schema_name} schema. Use the columns defined in the schema above."
+            context = f"This is the {current_dataset.name} dataset. {current_dataset.description}. Use the columns defined in the schema above."
         
         # Create prompt from template
         sql_prompt = PromptTemplate.from_template(text_to_sql_agent_prompt)
