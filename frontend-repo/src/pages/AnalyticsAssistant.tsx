@@ -5,7 +5,7 @@ import Plot from 'react-plotly.js';
 import CodeBlock from '../components/CodeBlock';
 import Tabs from '../components/Tabs';
 import AgentActivityPopup from '../components/AgentActivityPopup';
-import { EXAMPLE_PROMPTS } from '../lib/api';
+import { getExamplePrompts } from '../lib/api';
 import { sendAnalyticsQuery, getDatasets, switchDataset, getCurrentDataset } from '../api/client';
 
 const STORAGE_KEY = 'analytics-history';
@@ -53,7 +53,10 @@ export default function AnalyticsAssistant() {
   const [agentLogs, setAgentLogs] = useState<LogEntry[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [currentDataset, setCurrentDataset] = useState<Dataset | null>(null);
+  const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [datasetMenuOpen, setDatasetMenuOpen] = useState(false);
+  const [showDatasetBanner, setShowDatasetBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
 
   useEffect(() => {
     const savedHistory = localStorage.getItem(STORAGE_KEY);
@@ -78,6 +81,7 @@ export default function AnalyticsAssistant() {
       
       if (currentResponse.success) {
         setCurrentDataset(currentResponse.dataset);
+        setExamplePrompts(getExamplePrompts(currentResponse.dataset.id));
       }
     } catch (error) {
       console.error('Failed to load datasets:', error);
@@ -125,13 +129,12 @@ export default function AnalyticsAssistant() {
     
     try {
       setDatasetMenuOpen(false);
-      addLog(`Switching to dataset: ${datasetId}`, 'info', 'System');
       
       const response = await switchDataset(datasetId);
       
       if (response.success) {
         setCurrentDataset(response.dataset);
-        addLog(`Switched to ${response.dataset.name}`, 'success', 'System');
+        setExamplePrompts(getExamplePrompts(response.dataset.id));
         
         // Update datasets list to reflect active state
         setDatasets(prev => prev.map(ds => ({
@@ -139,14 +142,14 @@ export default function AnalyticsAssistant() {
           is_active: ds.id === datasetId
         })));
         
-        // Add system message to chat
-        const systemMessage = {
-          id: Date.now().toString(),
-          role: 'assistant' as const,
-          text: `Dataset switched to **${response.dataset.name}**\n\n${response.dataset.description}\n\nYou can now ask questions about this dataset.`,
-          ts: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, systemMessage]);
+        // Show banner notification
+        setBannerMessage(`Dataset switched to "${response.dataset.name}" - ${response.dataset.description}`);
+        setShowDatasetBanner(true);
+        
+        // Auto-hide banner after 4 seconds
+        setTimeout(() => {
+          setShowDatasetBanner(false);
+        }, 4000);
       }
     } catch (error) {
       console.error('Failed to switch dataset:', error);
@@ -280,7 +283,7 @@ export default function AnalyticsAssistant() {
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant' as const,
-          text: `Sorry, the query failed: ${errorMessage}.\n\nTips:\n- For WHAT questions: "What is the attrition rate by department?"\n- For WHY questions: "Why do employees leave the company?"\n- Make sure your question relates to the HR employee attrition dataset.`,
+          text: `Sorry, the query failed: ${errorMessage}.\n\nTips:\n- For WHAT questions (facts, counts, distributions): Ask about metrics and comparisons\n- For WHY questions (causes, relationships): Ask about reasons and correlations\n- Make sure your question relates to the ${currentDataset?.name || 'current'} dataset.`,
           ts: new Date().toISOString()
         }
       ]);
@@ -313,6 +316,26 @@ export default function AnalyticsAssistant() {
 
   return (
     <div className="flex h-screen bg-background text-gray-100 overflow-x-hidden max-w-full">
+      {/* Dataset Switch Banner */}
+      {showDatasetBanner && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
+          <div className="bg-gradient-to-r from-cyan-500/90 to-blue-500/90 backdrop-blur-sm px-6 py-3 rounded-lg shadow-2xl border border-cyan-400/30 flex items-center gap-3 max-w-2xl">
+            <svg className="w-5 h-5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-white text-sm font-medium">{bannerMessage}</p>
+            <button 
+              onClick={() => setShowDatasetBanner(false)}
+              className="ml-2 text-white/80 hover:text-white transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Sidebar for larger screens */}
       {sidebarVisible && (
         <aside className="hidden lg:flex lg:flex-col lg:w-80 lg:fixed lg:inset-y-0 bg-gray-900/50 border-r border-gray-800">
@@ -988,7 +1011,7 @@ export default function AnalyticsAssistant() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 font-medium">Quick examples:</span>
                   <div className="flex flex-wrap gap-2">
-                    {EXAMPLE_PROMPTS.slice(0, 3).map((prompt, i) => (
+                    {examplePrompts.slice(0, 3).map((prompt, i) => (
                       <button
                         key={i}
                         type="button"

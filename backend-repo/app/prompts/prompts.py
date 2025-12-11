@@ -55,8 +55,14 @@ text_to_sql_agent_prompt = """You are an expert PostgreSQL query generator. Gene
 5. Use COALESCE to handle NULL results appropriately
 6. Filter out NULL values when calculating aggregates for accuracy
 7. Use ONLY columns from the schema below - verify column names exist
-8. For date columns, use proper date functions and casting
-
+8. For date columns, use proper date functions and casting9. **CRITICAL**: For questions asking for BOTH overall AND grouped results (e.g., "overall average AND by category"):
+   - Create a SINGLE query using window functions, aggregation, or grouping sets
+   - NEVER use UNION with different column counts
+   - Example approaches:
+     a) Use GROUPING SETS: SELECT category, AVG(value) FROM table GROUP BY GROUPING SETS ((category), ())
+     b) Use window functions: SELECT category, AVG(value) OVER (PARTITION BY category), AVG(value) OVER () FROM table
+     c) Add a computed "Overall" row: SELECT 'Overall' as category, AVG(value) FROM table UNION ALL SELECT category, AVG(value) FROM table GROUP BY category
+   - Always ensure UNION queries have the SAME number of columns with compatible types
 # DATABASE SCHEMA
 {schema}
 
