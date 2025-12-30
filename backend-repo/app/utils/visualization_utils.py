@@ -73,22 +73,24 @@ fig = go.Figure(go.Bar(
     orientation='h',
     marker={{'color': '#6366F1'}},
     text=[f"{{value:.2f}}{'%' if {is_percentage} else ''}"],
-    textposition='outside'
+    textposition='outside',
+    textfont=dict(size=14)
 ))
 
 xaxis_range = [0, 100] if {is_percentage} else None
 
 fig.update_layout(
-    height=320,
+    height=300,
     template='plotly_white',
-    title={{'text': title_text, 'x': 0.01}},
+    title={{'text': title_text, 'font': {{'size': 16}}, 'x': 0.5, 'xanchor': 'center'}},
     xaxis={{
         'title': 'Percentage' if {is_percentage} else 'Value',
         'range': xaxis_range,
-        'ticksuffix': '%' if {is_percentage} else ''
+        'ticksuffix': '%' if {is_percentage} else '',
+        'title_font': {{'size': 12}}
     }},
     yaxis={{'visible': False}},
-    margin={{'l': 80, 'r': 40, 't': 60, 'b': 40}}
+    margin={{'l': 60, 'r': 40, 't': 80, 'b': 40}}
 )
 """
 

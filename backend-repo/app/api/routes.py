@@ -329,9 +329,11 @@ async def analyze_question(req: AnalysisRequest) -> AnalysisResponse:
             if result.get("sql_queries"):
                 for query in result["sql_queries"]:
                     if isinstance(query, dict):
-                        sql_queries.append(query.get("sql", ""))
+                        sql_queries.append(query.get("sql") or "")
+                    elif query is not None:
+                        sql_queries.append(str(query))
                     else:
-                        sql_queries.append(query)
+                        sql_queries.append("")
             
             return {
                 "success": True,

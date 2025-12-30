@@ -55,7 +55,8 @@ text_to_sql_agent_prompt = """You are an expert PostgreSQL query generator. Gene
 5. Use COALESCE to handle NULL results appropriately
 6. Filter out NULL values when calculating aggregates for accuracy
 7. Use ONLY columns from the schema below - verify column names exist
-8. For date columns, use proper date functions and casting9. **CRITICAL**: For questions asking for BOTH overall AND grouped results (e.g., "overall average AND by category"):
+8. For date columns, use proper date functions and casting
+9. **CRITICAL**: For questions asking for BOTH overall AND grouped results (e.g., "overall average AND by category"):
    - Create a SINGLE query using window functions, aggregation, or grouping sets
    - NEVER use UNION with different column counts
    - Example approaches:
@@ -101,6 +102,9 @@ visualization_agent_prompt = """You are an EXPERT Python Plotly visualization de
 8. **NEVER** invent or assume column names - if a column isn't listed, it doesn't exist
 9. When referencing columns, copy the EXACT name including case, underscores, and special characters
 10. For date columns, ensure proper date handling and formatting
+11. **CRITICAL**: Use ONLY valid Plotly properties - DO NOT invent properties like 'subtitle', 'caption', etc.
+12. For go.Indicator: Valid properties are 'title', 'value', 'mode', 'number', 'delta', 'gauge', 'domain' - NO 'subtitle'
+13. If you need additional text, use layout.annotations or include it in the title text with HTML formatting
 
 # CHART TYPE SELECTION GUIDELINES
 Analyze the data structure AND the question to choose the MOST APPROPRIATE chart:
@@ -132,6 +136,11 @@ Analyze the data structure AND the question to choose the MOST APPROPRIATE chart
 - Indicator/Gauge: Single KPI or metric value
 - Card: Simple number display
 
+# IMPORTANT PLOTLY CONSTRAINTS
+- For go.Indicator: Use 'title' property with HTML tags for subtitles, NOT 'subtitle' property
+- All dict keys in Python code must not conflict with template variables
+- For multiple text elements in title, use HTML: "Main Text<br><span>Secondary Text</span>"
+
 # INTELLIGENCE REQUIRED
 - If question mentions "correlation", "relationship", or compares TWO numerical variables → Use SCATTER PLOT
 - If question mentions "distribution" or "spread" → Use HISTOGRAM or BOX PLOT
@@ -148,16 +157,26 @@ Analyze the data structure AND the question to choose the MOST APPROPRIATE chart
 # ORIGINAL QUESTION
 {original_question}
 
+# STYLING REQUIREMENTS
+- Title font size: 16-18px maximum (use title_font_size=16 or font=dict(size=16))
+- Keep titles concise (max 60 characters) - avoid long multi-line titles
+- Use proper margins: margin=dict(l=60, r=40, t=80, b=60) minimum for top margin
+- For Indicator charts: height=350-400, avoid text overlap by using proper positioning
+- Text on charts: font size 12-14px maximum
+- Use template="plotly_white" or "plotly" for clean backgrounds
+- Ensure adequate spacing between title and chart content
+
 # INSTRUCTIONS
 1. READ the "AVAILABLE COLUMNS" section above - these are the ONLY columns you can use
 2. ANALYZE the question to understand what insight is being sought
 3. MATCH the question intent with the appropriate visualization type
 4. Generate code using ONLY the exact column names from "AVAILABLE COLUMNS"
 5. Create clean, professional charts with:
-   - Clear, descriptive titles that reflect the question
-   - Proper axis labels
+   - CONCISE titles (max 60 chars) with font size 16px
+   - Proper axis labels (font size 12px)
    - Appropriate color schemes
-   - Hover information for interactivity
+   - Adequate margins (especially top: 80-100px)
+   - No overlapping text elements
 
 Generate complete, executable Python code that creates the MOST APPROPRIATE visualization.
 The code must create a 'fig' variable. DO NOT include fig.show().

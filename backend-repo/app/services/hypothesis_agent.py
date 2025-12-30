@@ -14,33 +14,41 @@ from langchain_core.prompts import PromptTemplate
 
 from app.prompts.prompts import hypothesis_agent_prompt
 from app.utils.hypothesis_utils import parse_json_response
+from app.services.dataset_manager import get_dataset_manager
 
 
 def _load_dataset_context() -> str:
     """
     Load comprehensive dataset context from data dictionary and KPI documentation.
+    Uses dataset_manager to get the correct files for the currently selected dataset.
     
     Returns:
-        str: Formatted context string with variable information and HR domain knowledge
+        str: Formatted context string with variable information and domain knowledge
     """
     try:
-        # Get the project root directory (3 levels up from this file)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(current_dir))
-        data_folder = os.path.join(project_root, 'data')
+        # Get current dataset info
+        dataset_manager = get_dataset_manager()
+        current_dataset = dataset_manager.get_current_dataset()
+        
+        print(f"[DEBUG] Hypothesis Agent - Loading context for: {current_dataset.name}")
+        print(f"[DEBUG] Data Dictionary Path: {current_dataset.data_dictionary_path}")
         
         context_parts = []
         
-        # Load HR Data Dictionary (CSV)
-        data_dict_file = os.path.join(data_folder, 'HR_Data_Dictionary.csv')
+        # Load Data Dictionary (CSV)
+        data_dict_file = current_dataset.data_dictionary_path
+        print(f"[DEBUG] Checking if file exists: {data_dict_file}")
+        print(f"[DEBUG] File exists: {os.path.exists(data_dict_file)}")
         if os.path.exists(data_dict_file):
             try:
                 df_dict = pd.read_csv(data_dict_file)
                 
                 context_parts.append("=" * 80)
-                context_parts.append("AVAILABLE VARIABLES (Data Dictionary)")
+                context_parts.append(f"DATASET: {current_dataset.name}")
+                context_parts.append(f"DESCRIPTION: {current_dataset.description}")
                 context_parts.append("=" * 80)
-                context_parts.append("\nUse ONLY these exact column names (all lowercase):\n")
+                context_parts.append("\nAVAILABLE VARIABLES (Data Dictionary)")
+                context_parts.append("Use ONLY these exact column names (all lowercase):\n")
                 
                 # Format each variable with its key information
                 for _, row in df_dict.iterrows():
@@ -60,21 +68,21 @@ def _load_dataset_context() -> str:
             except Exception as e:
                 print(f"[WARNING] Could not load data dictionary: {e}")
         
-        # Load HR KPI Documentation (TXT)
-        kpi_doc_file = os.path.join(data_folder, 'hr_kpi_documentation.txt')
+        # Load KPI Documentation (TXT)
+        kpi_doc_file = current_dataset.kpi_documentation_path
         if os.path.exists(kpi_doc_file):
             try:
                 with open(kpi_doc_file, 'r', encoding='utf-8') as f:
                     kpi_content = f.read()
                 
                 context_parts.append("\n" + "=" * 80)
-                context_parts.append("HR DOMAIN KNOWLEDGE (KPI Documentation)")
+                context_parts.append(f"DOMAIN KNOWLEDGE ({current_dataset.name} KPI Documentation)")
                 context_parts.append("=" * 80)
                 context_parts.append("\nUse this domain knowledge to inform your hypothesis generation:\n")
                 context_parts.append(kpi_content)
                 context_parts.append("")
                 
-                print(f"[INFO] Loaded HR KPI documentation")
+                print(f"[INFO] Loaded KPI documentation")
             except Exception as e:
                 print(f"[WARNING] Could not load KPI documentation: {e}")
         
@@ -91,11 +99,15 @@ def _load_dataset_context() -> str:
             return f"DATASET SCHEMA:\n{schema_info}\n\nUse the columns defined above for generating hypotheses."
         except Exception as e:
             print(f"[WARNING] Could not generate context from schema: {e}")
-            return "DATASET: HR Employee Attrition dataset. Analyze relationships between variables based on the user's question."
+            dataset_manager = get_dataset_manager()
+            current_dataset = dataset_manager.get_current_dataset()
+            return f"DATASET: {current_dataset.name}. {current_dataset.description}. Analyze relationships between variables based on the user's question."
     
     except Exception as e:
         print(f"[ERROR] Failed to load dataset context: {e}")
-        return "DATASET: HR Employee Attrition dataset. Analyze relationships between variables based on the user's question."
+        dataset_manager = get_dataset_manager()
+        current_dataset = dataset_manager.get_current_dataset()
+        return f"DATASET: {current_dataset.name}. {current_dataset.description}. Analyze relationships between variables based on the user's question."
 
 
 async def hypothesis_agent(

@@ -10,8 +10,9 @@ Date: November 19, 2025
 import os
 from typing import Dict, Any
 from dotenv import load_dotenv
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
+from app.config import get_settings
 from app.services.planner_agent import planner_agent
 from app.services.text_to_sql_agent import text_to_sql_agent, get_database_connection
 from app.services.visualization_agent import visualization_agent
@@ -170,7 +171,7 @@ async def _handle_what_question(
 
 async def _handle_why_question(
     question: str,
-    llm: AzureChatOpenAI,
+    llm: ChatOpenAI,
     num_hypotheses: int,
     include_viz: bool,
     verbose: bool,
@@ -363,12 +364,13 @@ def initialize_llm() -> AzureChatOpenAI:
         AzureChatOpenAI instance configured for Azure OpenAI
     """
     load_dotenv(override=True)
+    settings = get_settings()
     
     return AzureChatOpenAI(
-        azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1"),
-        azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT", "https://assistant-genai.openai.azure.com/"),
-        api_key=os.environ.get("AZURE_OPENAI_API_KEY", ""),
-        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview"),
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_key=settings.azure_openai_api_key,
+        api_version=settings.azure_openai_api_version,
+        azure_deployment=settings.azure_openai_deployment,
         temperature=0.0,
         timeout=120.0,
         max_retries=2,

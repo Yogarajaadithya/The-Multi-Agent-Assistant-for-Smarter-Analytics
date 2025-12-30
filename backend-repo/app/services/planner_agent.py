@@ -86,5 +86,8 @@ async def planner_agent(user_query: str, llm) -> Dict[str, Any]:
             "analysis_approach": "Descriptive analysis with data retrieval and visualization"
         }
     except Exception as err:
+        import traceback
         print(f"Error in planner_agent: {err}")
+        print(f"Error type: {type(err).__name__}")
+        print(f"Full traceback: {traceback.format_exc()}")
         raise err

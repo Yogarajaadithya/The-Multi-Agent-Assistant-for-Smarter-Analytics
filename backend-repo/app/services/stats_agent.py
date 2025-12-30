@@ -8,16 +8,20 @@ Date: November 19, 2025
 """
 
 import pandas as pd
+import logging
 from typing import Dict, Any
 
+logger = logging.getLogger(__name__)
+
 from app.utils.stats_utils import (
-    load_hr_data,
+    load_dataset_data,
     chi_square_test,
     t_test,
     anova_test,
     pearson_correlation,
     spearman_correlation
 )
+from app.services.dataset_manager import get_dataset_manager
 
 
 async def stats_agent(hypotheses_result: Dict[str, Any], df: pd.DataFrame = None) -> Dict[str, Any]:
@@ -47,7 +51,8 @@ async def stats_agent(hypotheses_result: Dict[str, Any], df: pd.DataFrame = None
     try:
         # Load data if not provided
         if df is None:
-            df = load_hr_data()
+            dataset_manager = get_dataset_manager()
+            df = load_dataset_data(dataset_manager)
         
         # Normalize column names
         df.columns = df.columns.str.lower()
@@ -78,9 +83,10 @@ async def stats_agent(hypotheses_result: Dict[str, Any], df: pd.DataFrame = None
         return all_results
     
     except Exception as err:
-        print(f"Error in stats_agent: {str(err)}")
+        error_msg = f"Statistical testing failed: {str(err)}"
+        logger.error(f"Error in stats_agent: {str(err)}", exc_info=True)
         return {
-            "error": f"Statistical testing failed: {str(err)}",
+            "error": error_msg,
             "summary": {"total_hypotheses": 0, "dataset_shape": [0, 0]},
             "hypothesis_results": []
         }

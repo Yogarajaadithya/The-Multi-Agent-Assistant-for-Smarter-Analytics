@@ -36,8 +36,13 @@ class DatasetManager:
     
     def _initialize_datasets(self):
         """Initialize available datasets"""
-        # Get the project root directory
-        project_root = Path(__file__).parent.parent.parent
+        # Get the project root directory (go up 3 levels from this file to get to project root)
+        # Path(__file__) -> dataset_manager.py
+        # .parent -> app/services/
+        # .parent -> app/
+        # .parent -> backend-repo/
+        # .parent -> project root
+        project_root = Path(__file__).parent.parent.parent.parent
         
         # HR Dataset
         self.datasets["hr_data"] = DatasetInfo(

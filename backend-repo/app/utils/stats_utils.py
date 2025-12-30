@@ -23,6 +23,7 @@ load_dotenv(override=True)
 def load_hr_data() -> pd.DataFrame:
     """
     Load HR employee attrition data from PostgreSQL database.
+    Deprecated: Use load_dataset_data() instead for multi-dataset support.
     
     Returns:
         pandas.DataFrame: Employee data with normalized lowercase column names
@@ -32,6 +33,25 @@ def load_hr_data() -> pd.DataFrame:
         >>> print(df.columns[:5])
         Index(['age', 'attrition', 'businesstravel', ...], dtype='object')
     """
+    from app.services.dataset_manager import get_dataset_manager
+    return load_dataset_data(get_dataset_manager())
+
+
+def load_dataset_data(dataset_manager) -> pd.DataFrame:
+    """
+    Load data from the currently selected dataset in PostgreSQL database.
+    
+    Args:
+        dataset_manager: DatasetManager instance to get current dataset info
+    
+    Returns:
+        pandas.DataFrame: Dataset with normalized lowercase column names
+    
+    Example:
+        >>> from app.services.dataset_manager import get_dataset_manager
+        >>> df = load_dataset_data(get_dataset_manager())
+        >>> print(df.shape)
+    """
     encoded_pw = quote_plus(os.getenv("DB_PASSWORD"))
     postgres_url = (
         f"postgresql+psycopg2://{os.getenv('DB_USER')}:{encoded_pw}"
@@ -40,12 +60,18 @@ def load_hr_data() -> pd.DataFrame:
     
     engine = create_engine(postgres_url)
     
-    schema_name = os.getenv('DB_SCHEMA', 'public')
-    query = f'SELECT * FROM {schema_name}.wa_fn_usec'
+    # Get current dataset info from dataset_manager
+    current_dataset = dataset_manager.get_current_dataset()
+    schema_name = current_dataset.schema_name
+    table_name = current_dataset.main_table
+    
+    query = f'SELECT * FROM {schema_name}.{table_name}'
     df = pd.read_sql_query(query, engine)
     
     # Normalize column names to lowercase
     df.columns = df.columns.str.lower()
+    
+    engine.dispose()
     
     return df
 

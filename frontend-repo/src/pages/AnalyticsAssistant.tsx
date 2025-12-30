@@ -812,7 +812,13 @@ export default function AnalyticsAssistant() {
                               },
                               {
                                 label: 'Stats',
-                                content: message.data.question_type === 'WHY' && message.data.statistical_results?.hypothesis_results ? (
+                                content: message.data.question_type === 'WHY' ? (
+                                  message.data.statistical_results?.error ? (
+                                    <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                                      <div className="text-sm font-medium text-red-400 mb-2">Statistical Testing Error</div>
+                                      <div className="text-xs text-red-300">{message.data.statistical_results.error}</div>
+                                    </div>
+                                  ) : message.data.statistical_results?.hypothesis_results && message.data.statistical_results.hypothesis_results.length > 0 ? (
                                   <div className="bg-gray-900/30 rounded-lg p-4">
                                     <div className="text-sm font-medium text-gray-300 mb-3">Stats Summary</div>
                                     <div className="space-y-4 text-xs text-gray-400 font-mono">
@@ -870,6 +876,11 @@ export default function AnalyticsAssistant() {
                                       })}
                                     </div>
                                   </div>
+                                  ) : (
+                                    <div className="bg-gray-900/30 rounded-lg p-4">
+                                      <div className="text-sm text-gray-400">No statistical test results available.</div>
+                                    </div>
+                                  )
                                 ) : (
                                   <div className="p-4">
                                     {message.data.question_type === 'WHAT' && message.data.data && message.data.data.length > 0 ? (
