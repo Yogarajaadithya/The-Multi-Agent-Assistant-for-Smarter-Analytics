@@ -54,43 +54,86 @@ def detect_single_value_df(df: pd.DataFrame) -> bool:
     return df.shape[0] == 1 and df.shape[1] == 1
 
 
+def detect_value_type(column_name: str) -> str:
+    """
+    Detect the semantic type of a value based on column name patterns.
+    Returns: 'percentage', 'count', 'average', 'currency', or 'number'
+    """
+    col_lower = column_name.lower()
+    
+    # Check for percentage/rate patterns
+    if any(pattern in col_lower for pattern in ['_percent', '_rate', 'rate_', 'percent', 'percentage']):
+        return 'percentage'
+    
+    # Check for count patterns
+    if any(pattern in col_lower for pattern in ['_count', 'count_', 'total_', 'num_', 'number_', 'how_many']):
+        return 'count'
+    
+    # Check for average patterns
+    if any(pattern in col_lower for pattern in ['avg_', 'average_', 'mean_', '_avg', '_average', '_mean']):
+        return 'average'
+    
+    # Check for currency patterns
+    if any(pattern in col_lower for pattern in ['_income', '_salary', '_revenue', '_price', '_amount', '_cost', 'income', 'salary', 'revenue']):
+        return 'currency'
+    
+    # Default to number
+    return 'number'
+
+
 def generate_indicator_code(df: pd.DataFrame) -> str:
-    """Generate code for single-value result as a bar chart."""
+    """
+    Generate code for single-value result as an Indicator (number card).
+    Automatically detects format based on column name patterns.
+    """
     value = float(df.iloc[0, 0])
     column_name = df.columns[0]
     title = column_name.replace('_', ' ').title()
+    value_type = detect_value_type(column_name)
     
-    is_percentage = 'rate' in column_name.lower() or 'percent' in column_name.lower()
+    # Determine formatting based on value type
+    if value_type == 'percentage':
+        number_format = "'.2f'"
+        suffix = "'%'"
+        color = "'#6366F1'"  # Purple for percentages
+    elif value_type == 'count':
+        number_format = "',.0f'"
+        suffix = "''"
+        color = "'#10B981'"  # Green for counts
+    elif value_type == 'average':
+        number_format = "',.2f'"
+        suffix = "''"
+        color = "'#F59E0B'"  # Amber for averages
+    elif value_type == 'currency':
+        number_format = "'$,.2f'"
+        suffix = "''"
+        color = "'#10B981'"  # Green for currency
+    else:
+        number_format = "',.2f'"
+        suffix = "''"
+        color = "'#6366F1'"  # Default purple
     
     return f"""import plotly.graph_objects as go
 
 value = {value}
 title_text = "{title}"
 
-fig = go.Figure(go.Bar(
-    x=[value],
-    y=[title_text],
-    orientation='h',
-    marker={{'color': '#6366F1'}},
-    text=[f"{{value:.2f}}{'%' if {is_percentage} else ''}"],
-    textposition='outside',
-    textfont=dict(size=14)
+fig = go.Figure(go.Indicator(
+    mode='number',
+    value=value,
+    title={{'text': title_text, 'font': {{'size': 20, 'color': '#374151'}}}},
+    number={{
+        'font': {{'size': 56, 'color': {color}}},
+        'valueformat': {number_format},
+        'suffix': {suffix}
+    }}
 ))
 
-xaxis_range = [0, 100] if {is_percentage} else None
-
 fig.update_layout(
-    height=300,
+    height=250,
     template='plotly_white',
-    title={{'text': title_text, 'font': {{'size': 16}}, 'x': 0.5, 'xanchor': 'center'}},
-    xaxis={{
-        'title': 'Percentage' if {is_percentage} else 'Value',
-        'range': xaxis_range,
-        'ticksuffix': '%' if {is_percentage} else '',
-        'title_font': {{'size': 12}}
-    }},
-    yaxis={{'visible': False}},
-    margin={{'l': 60, 'r': 40, 't': 80, 'b': 40}}
+    margin=dict(l=20, r=20, t=60, b=20),
+    paper_bgcolor='white'
 )
 """
 

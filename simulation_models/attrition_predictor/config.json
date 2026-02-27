@@ -1,0 +1,35 @@
+{
+  "model_name": "employee_attrition_predictor",
+  "version": "v1",
+  "model_type": "classification",
+  "dataset": "hr_data",
+  "table": "employee_attrition",
+  "algorithm": "RandomForestClassifier",
+  "target": "attrition",
+  "positive_class": "Yes (Leave)",
+  "performance": {
+    "accuracy": 0.8571,
+    "roc_auc": 0.7948,
+    "cv_roc_auc_mean": 0.8102,
+    "cv_roc_auc_std": 0.0297,
+    "train_size": 1176,
+    "test_size": 294
+  },
+  "top_features": {
+    "overtime": 0.08876833625663083,
+    "monthlyincome": 0.07178552483006455,
+    "totalworkingyears": 0.06060861807609401,
+    "age": 0.059490511271847124,
+    "yearsatcompany": 0.05201987434319692,
+    "yearswithcurrmanager": 0.048056746105618206,
+    "jobrole": 0.047692974964171415,
+    "dailyrate": 0.04604901275555049,
+    "distancefromhome": 0.0430665150714777,
+    "monthlyrate": 0.03850115958287246
+  },
+  "pipeline_path": "simulation_models\\attrition_predictor\\pipeline_v1.pkl",
+  "features_path": "simulation_models\\attrition_predictor\\features.json",
+  "created_at": "2026-02-20T15:10:10.530614",
+  "is_active": true,
+  "description": "Predicts probability of employee attrition. Useful for what-if simulations on salary, overtime, satisfaction, etc."
+}

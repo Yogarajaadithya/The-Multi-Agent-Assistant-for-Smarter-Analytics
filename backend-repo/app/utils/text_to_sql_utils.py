@@ -46,6 +46,7 @@ def get_database_connection(schema_name: str = None):
 def get_structured_schema(db: SQLDatabase = None, schema_name: str = None, table_name: str = None) -> str:
     """
     Generate CREATE TABLE style schema representation dynamically from database.
+    Includes sample values for categorical (TEXT) columns to help LLM generate accurate filters.
     
     Args:
         db: SQLDatabase connection (creates new if None)
@@ -53,7 +54,7 @@ def get_structured_schema(db: SQLDatabase = None, schema_name: str = None, table
         table_name: Table name (uses dataset's main table if None)
     
     Returns:
-        str: CREATE TABLE statement with columns
+        str: CREATE TABLE statement with columns and categorical values
     """
     if db is None:
         db = get_database_connection(schema_name)
@@ -90,7 +91,30 @@ def get_structured_schema(db: SQLDatabase = None, schema_name: str = None, table
         if columns_df.empty:
             raise ValueError(f"Table {full_table_name} not found or has no columns")
         
-        # Build CREATE TABLE statement
+        # Get distinct values for TEXT/categorical columns (limit to reasonable number)
+        categorical_values = {}
+        for _, row in columns_df.iterrows():
+            col_name = row['column_name']
+            data_type = row['data_type'].lower()
+            
+            # Only get distinct values for TEXT-like columns
+            if 'char' in data_type or 'text' in data_type:
+                try:
+                    distinct_query = f"""
+                    SELECT DISTINCT {col_name} 
+                    FROM {full_table_name} 
+                    WHERE {col_name} IS NOT NULL 
+                    ORDER BY {col_name} 
+                    LIMIT 15
+                    """
+                    distinct_df = pd.read_sql(distinct_query, conn)
+                    if not distinct_df.empty and len(distinct_df) <= 15:
+                        values = distinct_df[col_name].tolist()
+                        categorical_values[col_name] = values
+                except Exception:
+                    pass  # Skip if we can't get distinct values
+        
+        # Build CREATE TABLE statement with categorical values
         schema_lines = [f"CREATE TABLE {full_table_name} ("]
         
         for _, row in columns_df.iterrows():
@@ -113,11 +137,20 @@ def get_structured_schema(db: SQLDatabase = None, schema_name: str = None, table
             elif 'time' in data_type.lower():
                 data_type = 'TIMESTAMP'
             
-            schema_lines.append(f"    {col_name} {data_type},")
+            # Add categorical values as comment if available
+            if col_name in categorical_values:
+                values_str = ", ".join([f"'{v}'" for v in categorical_values[col_name]])
+                schema_lines.append(f"    {col_name} {data_type},  -- Possible values: [{values_str}]")
+            else:
+                schema_lines.append(f"    {col_name} {data_type},")
         
         # Remove trailing comma and close
         schema_lines[-1] = schema_lines[-1].rstrip(',')
-        schema_lines.append(");")
+        if schema_lines[-1].endswith(']'):
+            # Has a comment, just close the parenthesis
+            schema_lines.append(");")
+        else:
+            schema_lines.append(");")
         
         return "\n".join(schema_lines)
         

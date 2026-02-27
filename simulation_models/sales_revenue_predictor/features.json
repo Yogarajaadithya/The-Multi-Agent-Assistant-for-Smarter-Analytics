@@ -1,0 +1,48 @@
+{
+  "all_features": [
+    "agegroup",
+    "gender",
+    "city",
+    "devicetype",
+    "acquisitionchannel",
+    "customersegment",
+    "category",
+    "subcategory",
+    "brand",
+    "paymentmethod",
+    "orderstatus",
+    "promocodeused",
+    "price",
+    "quantity",
+    "discount",
+    "shippingcost",
+    "deliverydays",
+    "rating",
+    "reviewcount"
+  ],
+  "cat_features": [
+    "agegroup",
+    "gender",
+    "city",
+    "devicetype",
+    "acquisitionchannel",
+    "customersegment",
+    "category",
+    "subcategory",
+    "brand",
+    "paymentmethod",
+    "orderstatus",
+    "promocodeused"
+  ],
+  "num_features": [
+    "price",
+    "quantity",
+    "discount",
+    "shippingcost",
+    "deliverydays",
+    "rating",
+    "reviewcount"
+  ],
+  "target": "revenue",
+  "model_task": "regression"
+}

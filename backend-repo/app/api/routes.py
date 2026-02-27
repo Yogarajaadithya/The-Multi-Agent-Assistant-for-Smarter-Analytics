@@ -38,6 +38,13 @@ class AnalysisRequest(BaseModel):
     question: str = Field(..., description="Natural language question about HR data")
     num_hypotheses: int = Field(3, ge=1, le=10, description="Number of hypotheses for WHY questions")
     include_visualization: bool = Field(True, description="Generate visualization for WHAT questions")
+    dataset: Optional[str] = Field(None, description="Dataset override for SIMULATE questions: 'hr_data' or 'sales_data'")
+
+
+class SimulationRequest(BaseModel):
+    """Direct request for the simulation agent."""
+    question: str = Field(..., description="Natural language what-if / simulation question")
+    dataset: str = Field("hr_data", description="'hr_data' or 'sales_data'")
 
 
 class QueryResponse(BaseModel):
@@ -72,7 +79,22 @@ class AnalysisResponse(BaseModel):
     hypotheses: Optional[Dict[str, Any]] = None
     statistical_results: Optional[Dict[str, Any]] = None
     summary: Optional[Dict[str, Any]] = None
-    
+
+    # For SIMULATE questions
+    simulation_type: Optional[str] = None
+    model_name: Optional[str] = None
+    model_type: Optional[str] = None
+    model_performance: Optional[Dict[str, Any]] = None
+    scope: Optional[Dict[str, Any]] = None
+    n_records_analyzed: Optional[int] = None
+    baseline: Optional[Dict[str, Any]] = None
+    whatif: Optional[Dict[str, Any]] = None
+    delta: Optional[Dict[str, Any]] = None
+    comparison_table: Optional[List[Dict[str, Any]]] = None
+    optimization: Optional[Dict[str, Any]] = None
+    insights: Optional[str] = None
+    parsed_params: Optional[Dict[str, Any]] = None
+
     error: Optional[str] = None
 
 
@@ -267,7 +289,52 @@ async def analyze_question(req: AnalysisRequest) -> AnalysisResponse:
         
         # Build response based on question type
         question_type = result.get("question_type", "WHAT")
-        
+
+        if question_type == "SIMULATE":
+            # Simulation analytics response
+            viz_data = None
+            if result.get("visualization"):
+                try:
+                    viz_data = {
+                        "success": True,
+                        "plotly_json": json.loads(pio.to_json(result["visualization"])),
+                    }
+                except Exception:
+                    viz_data = {"success": False, "error": "Visualization serialization failed"}
+
+            comparison = None
+            if "comparison_table" in result:
+                comparison = result["comparison_table"].to_dict(orient="records")
+
+            optimization = None
+            if "optimization" in result:
+                opt = dict(result["optimization"])
+                opt.pop("search_curve", None)  # remove DataFrame, not serializable
+                optimization = opt
+
+            return {
+                "success": True,
+                "question": req.question,
+                "question_type": "SIMULATE",
+                "analysis_type": "predictive_analytics",
+                "planner_decision": result.get("planner_decision"),
+                "simulation_type": result.get("simulation_type"),
+                "model_name": result.get("model_name"),
+                "model_type": result.get("model_type"),
+                "model_performance": result.get("model_performance"),
+                "scope": result.get("scope"),
+                "n_records_analyzed": result.get("n_records_analyzed"),
+                "baseline": result.get("baseline"),
+                "delta": result.get("delta"),
+                "whatif": result.get("whatif"),
+                "comparison_table": comparison,
+                "optimization": optimization,
+                "visualization": viz_data,
+                "insights": result.get("insights"),
+                "parsed_params": result.get("parsed_params"),
+                "error": None,
+            }
+
         if question_type == "WHAT":
             # Descriptive analytics response
             data_list = result.get("data")
@@ -480,6 +547,98 @@ async def analyze_why_question(req: AnalysisRequest) -> Dict[str, Any]:
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"WHY analysis failed: {str(e)}")
+
+
+@router.post("/simulate")
+async def run_simulation(req: SimulationRequest) -> Dict[str, Any]:
+    """
+    Direct Simulation Agent endpoint.
+
+    Runs what-if, multi-scenario, optimization, or sensitivity analysis
+    using pre-trained ML models (no planner step — fastest path).
+
+    - dataset='hr_data'    → employee_attrition_predictor (classification)
+    - dataset='sales_data' → sales_revenue_predictor (regression)
+
+    Example questions:
+    - "What if we give everyone a 20% raise?" (hr_data)
+    - "What raise % would bring attrition below 10%?" (hr_data)
+    - "Compare: 5% price increase vs 10% discount cut" (sales_data)
+    """
+    from app.main import llm_instance
+    from app.services.simulation_agent import simulation_agent as _sim_agent
+    import plotly.io as _pio
+
+    if llm_instance is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Multi-Agent System not initialized. Please check server logs.",
+        )
+
+    try:
+        result = await _sim_agent(
+            question=req.question,
+            llm=llm_instance,
+            dataset=req.dataset,
+            verbose=True,
+        )
+
+        if not result.get("success", False):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Simulation failed"),
+            )
+
+        # Serialize Plotly figure
+        viz_data = None
+        if result.get("visualization"):
+            try:
+                viz_data = {
+                    "success": True,
+                    "plotly_json": json.loads(pio.to_json(result["visualization"])),
+                }
+            except Exception:
+                viz_data = {"success": False, "error": "Visualization serialization failed"}
+
+        # Serialize comparison_table DataFrame
+        comparison = None
+        if "comparison_table" in result:
+            comparison = result["comparison_table"].to_dict(orient="records")
+
+        # Remove un-serializable search_curve DataFrame from optimization
+        optimization = None
+        if "optimization" in result:
+            opt = dict(result["optimization"])
+            opt.pop("search_curve", None)
+            optimization = opt
+
+        return {
+            "success": True,
+            "question": req.question,
+            "dataset": req.dataset,
+            "simulation_type": result.get("simulation_type"),
+            "model_name": result.get("model_name"),
+            "model_type": result.get("model_type"),
+            "model_performance": result.get("model_performance"),
+            "scope": result.get("scope"),
+            "n_records_analyzed": result.get("n_records_analyzed"),
+            "baseline": result.get("baseline"),
+            "delta": result.get("delta"),
+            "whatif": result.get("whatif"),
+            "comparison_table": comparison,
+            "optimization": optimization,
+            "visualization": viz_data,
+            "insights": result.get("insights"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, detail=f"Simulation failed: {str(e)}"
+        )
 
 
 # ============================================================================

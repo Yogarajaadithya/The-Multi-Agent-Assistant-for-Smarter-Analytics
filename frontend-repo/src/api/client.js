@@ -34,10 +34,13 @@ export async function sendChat(messages) {
 // This routes through the Planner Agent which intelligently determines whether to use:
 // - Text-to-SQL + Visualization (for WHAT questions)
 // - Hypothesis + Statistical Testing (for WHY questions)
-export async function sendAnalyticsQuery(question, includeVisualization = true) {
+export async function sendAnalyticsQuery(question, includeVisualization = true, timeoutMs = 180000) {
   console.log('Sending analytics query to:', `${BACKEND_BASE_URL}/analyze`);
   console.log('Query:', question);
-  
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const res = await fetch(`${BACKEND_BASE_URL}/analyze`, {
       method: "POST",
@@ -49,8 +52,10 @@ export async function sendAnalyticsQuery(question, includeVisualization = true) 
         question,
         include_visualization: includeVisualization 
       }),
+      signal: controller.signal,
     });
-    
+
+    clearTimeout(timeoutId);
     console.log('Response status:', res.status);
     if (!res.ok) {
       const errorText = await res.text();
@@ -61,8 +66,15 @@ export async function sendAnalyticsQuery(question, includeVisualization = true) 
     const data = await res.json();
     console.log('Response data:', data);
     console.log('Question type detected:', data.question_type);
-    return data; // { success, question_type, sql, data, visualization, hypotheses, statistical_results }
+    return data;
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out after 3 minutes. The simulation is taking longer than expected — please try again.');
+    }
+    if (error.message === 'Failed to fetch') {
+      throw new Error('Cannot reach the backend. The server may be restarting — please wait a few seconds and try again.');
+    }
     console.error('Request failed:', error);
     throw error;
   }

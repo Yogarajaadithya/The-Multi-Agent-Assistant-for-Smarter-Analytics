@@ -250,6 +250,83 @@ export default function AnalyticsAssistant() {
             responseText += `\n\nSignificant Findings: ${significantResults.length} out of ${numTests} hypotheses showed statistically significant results (p < 0.05)`;
           }
         }
+      } else if (response.question_type === 'SIMULATE') {
+        addLog('Question classified as SIMULATE (Predictive / What-If Analytics)', 'info', 'Planner');
+        addLog('Activating Simulation Agent...', 'info', 'Simulation');
+        if (response.model_name) {
+          addLog(`Model loaded: ${response.model_name}`, 'success', 'Simulation');
+        }
+        if (response.baseline) {
+          addLog('Baseline predictions computed', 'success', 'Simulation');
+        }
+        if (response.delta || response.comparison_table) {
+          addLog('What-If scenario evaluated', 'success', 'Simulation');
+        }
+        if (response.insights) {
+          addLog('Business insights generated', 'success', 'Simulation');
+        }
+
+        // Friendly model name — never show raw internal ID to the user
+        const modelDisplayName =
+          response.model_name === 'employee_attrition_predictor'
+            ? 'Random Forest · Attrition Predictor'
+            : response.model_name === 'sales_revenue_predictor'
+            ? 'Gradient Boosting · Revenue Predictor'
+            : response.model_name ?? 'N/A';
+
+        // Use ?? so that a genuine 0 still shows as 0 rather than N/A
+        const recordsDisplay = response.n_records_analyzed ?? 'N/A';
+        const isRegression = response.model_type === 'regression';
+
+        // Extract accuracy from model_performance
+        const perf = response.model_performance;
+        const accuracyDisplay =
+          perf?.accuracy != null
+            ? `${(perf.accuracy * 100).toFixed(1)}%`
+            : perf?.r2 != null
+            ? `R²=${perf.r2.toFixed(3)}`
+            : null;
+
+        responseText = `Simulation completed. Question Type: SIMULATE (Predictive Analytics)\nModel: ${modelDisplayName} | Records Analysed: ${recordsDisplay}${accuracyDisplay ? ` | Accuracy: ${accuracyDisplay}` : ''}`;
+
+        if (isRegression) {
+          // Sales / revenue model
+          const baselineRev: number | null = response.baseline?.mean_revenue ?? null;
+          const whatifRev: number | null = response.whatif?.mean_revenue ?? null;
+          const revChangePct: number | null = response.delta?.mean_revenue_change_pct ?? null;
+          const revChangeAbs: number | null = response.delta?.mean_revenue_change ?? null;
+          if (baselineRev != null && whatifRev != null) {
+            const sign = (revChangeAbs ?? 0) >= 0 ? '+' : '';
+            responseText += `\n\nBaseline Revenue: €${baselineRev.toFixed(2)} → What-If Revenue: €${whatifRev.toFixed(2)}`;
+            if (revChangePct != null) responseText += ` (${sign}${revChangePct.toFixed(1)}%)`;
+            if (revChangeAbs != null) responseText += `\nTotal Revenue Change: ${sign}€${Math.abs(revChangeAbs).toFixed(0)}`;
+          }
+        } else {
+          // HR / attrition model
+          const baselineRateRaw: number | null =
+            response.baseline?.attrition_rate ??
+            (response.comparison_table?.find((r: any) => r.Scenario === 'Baseline')?.[
+              'Attrition Rate (raw)'
+            ] ?? null);
+          const whatifRateRaw: number | null =
+            response.whatif?.attrition_rate ??
+            (response.comparison_table?.find((r: any) => r.Scenario === 'What-If')?.[
+              'Attrition Rate (raw)'
+            ] ?? null);
+          const baselineRate = baselineRateRaw != null ? `${(baselineRateRaw * 100).toFixed(1)}%` : null;
+          const newRate = whatifRateRaw != null ? `${(whatifRateRaw * 100).toFixed(1)}%` : null;
+          const deltaRaw: number | null =
+            response.delta?.attrition_rate_change ??
+            (baselineRateRaw != null && whatifRateRaw != null ? whatifRateRaw - baselineRateRaw : null);
+          const delta = deltaRaw != null
+            ? `${deltaRaw * 100 >= 0 ? '+' : ''}${(deltaRaw * 100).toFixed(1)} pp`
+            : null;
+          const saved = response.delta?.employees_saved;
+          if (baselineRate && newRate) {
+            responseText += `\n\nBaseline Attrition: ${baselineRate} → What-If Attrition: ${newRate} (${delta})`;
+            if (saved != null) responseText += `\nEmployees Retained: ${saved > 0 ? '+' : ''}${saved}`;
+          }
+        }
       } else {
         responseText = response.message || 'Analysis completed successfully!';
       }
@@ -315,7 +392,7 @@ export default function AnalyticsAssistant() {
   };
 
   return (
-    <div className="flex h-screen bg-background text-gray-100 overflow-x-hidden max-w-full">
+    <div className="flex h-screen bg-gray-950 text-gray-100 overflow-x-hidden max-w-full">
       {/* Dataset Switch Banner */}
       {showDatasetBanner && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
@@ -683,6 +760,118 @@ export default function AnalyticsAssistant() {
                                       </div>
                                     )}
                                     
+                                    {/* Simulation results for SIMULATE questions */}
+                                    {message.data.question_type === 'SIMULATE' && (
+                                      <div className="space-y-4">
+                                        {/* Metric cards */}
+                                        {message.data.baseline && (() => {
+                                          const isReg = message.data.model_type === 'regression';
+                                          if (isReg) {
+                                            const baseRev: number | null = message.data.baseline?.mean_revenue ?? null;
+                                            const whatifRev: number | null = message.data.whatif?.mean_revenue ?? null;
+                                            const revChgPct: number | null = message.data.delta?.mean_revenue_change_pct ?? null;
+                                            const revChgAbs: number | null = message.data.delta?.mean_revenue_change ?? null;
+                                            return (
+                                              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                                <div className="bg-gray-900/60 rounded-lg p-3 border border-cyan-500/20">
+                                                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Baseline Revenue</div>
+                                                  <div className="text-xl font-bold text-cyan-300">
+                                                    {baseRev != null ? `€${baseRev.toFixed(2)}` : '—'}
+                                                  </div>
+                                                  <div className="text-[10px] text-gray-500 mt-1">mean per order</div>
+                                                </div>
+                                                {message.data.whatif && (
+                                                  <div className="bg-gray-900/60 rounded-lg p-3 border border-emerald-500/20">
+                                                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">What-If Revenue</div>
+                                                    <div className="text-xl font-bold text-emerald-300">
+                                                      {whatifRev != null ? `€${whatifRev.toFixed(2)}` : '—'}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-500 mt-1">mean per order</div>
+                                                  </div>
+                                                )}
+                                                {message.data.delta && (
+                                                  <>
+                                                    <div className="bg-gray-900/60 rounded-lg p-3 border border-amber-500/20">
+                                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Revenue Change</div>
+                                                      <div className={`text-xl font-bold ${(revChgPct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {revChgPct != null ? `${revChgPct >= 0 ? '+' : ''}${revChgPct.toFixed(1)}%` : '—'}
+                                                      </div>
+                                                    </div>
+                                                    <div className="bg-gray-900/60 rounded-lg p-3 border border-purple-500/20">
+                                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Total Δ Revenue</div>
+                                                      <div className={`text-xl font-bold ${(revChgAbs ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {revChgAbs != null ? `${revChgAbs >= 0 ? '+' : ''}€${Math.abs(revChgAbs).toFixed(0)}` : '—'}
+                                                      </div>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          } else {
+                                            return (
+                                              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                                <div className="bg-gray-900/60 rounded-lg p-3 border border-cyan-500/20">
+                                                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Baseline Attrition</div>
+                                                  <div className="text-xl font-bold text-cyan-300">
+                                                    {message.data.baseline.attrition_rate != null ? `${(message.data.baseline.attrition_rate * 100).toFixed(1)}%` : '—'}
+                                                  </div>
+                                                  <div className="text-[10px] text-gray-500 mt-1">{message.data.baseline.predicted_leavers ?? '—'} leavers</div>
+                                                </div>
+                                                {message.data.whatif && (
+                                                  <div className="bg-gray-900/60 rounded-lg p-3 border border-emerald-500/20">
+                                                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">What-If Attrition</div>
+                                                    <div className="text-xl font-bold text-emerald-300">
+                                                      {message.data.whatif.attrition_rate != null ? `${(message.data.whatif.attrition_rate * 100).toFixed(1)}%` : '—'}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-500 mt-1">{message.data.whatif.predicted_leavers ?? '—'} leavers</div>
+                                                  </div>
+                                                )}
+                                                {message.data.delta && (
+                                                  <>
+                                                    <div className="bg-gray-900/60 rounded-lg p-3 border border-amber-500/20">
+                                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Change (pp)</div>
+                                                      <div className={`text-xl font-bold ${(message.data.delta.attrition_rate_change ?? 0) <= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {message.data.delta.attrition_rate_change != null
+                                                          ? `${(message.data.delta.attrition_rate_change * 100 >= 0 ? '+' : '')}${(message.data.delta.attrition_rate_change * 100).toFixed(1)} pp`
+                                                          : '—'}
+                                                      </div>
+                                                    </div>
+                                                    <div className="bg-gray-900/60 rounded-lg p-3 border border-purple-500/20">
+                                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Employees Saved</div>
+                                                      <div className={`text-xl font-bold ${(message.data.delta.employees_saved ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {message.data.delta.employees_saved != null ? `${message.data.delta.employees_saved >= 0 ? '+' : ''}${message.data.delta.employees_saved}` : '—'}
+                                                      </div>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          }
+                                        })()}
+                                        {/* Plotly comparison chart */}
+                                        {message.data.visualization?.success && (
+                                          <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
+                                            <Plot
+                                              data={message.data.visualization.plotly_json?.data ?? []}
+                                              layout={{
+                                                ...(message.data.visualization.plotly_json?.layout ?? {}),
+                                                autosize: true,
+                                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                                font: { color: '#e5e7eb', size: 10 },
+                                                margin: { l: 60, r: 30, t: 50, b: 60 },
+                                                height: 360,
+                                              }}
+                                              frames={message.data.visualization.plotly_json?.frames ?? []}
+                                              config={{ responsive: true, displayModeBar: true }}
+                                              style={{ width: '100%' }}
+                                              useResizeHandler={true}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
                                     {/* Single Visualization for WHAT questions */}
                                     {message.data.question_type === 'WHAT' && message.data.visualization?.success && (
                                       <div className="bg-gray-900/50 rounded-lg p-3 max-w-full overflow-hidden">
@@ -804,7 +993,15 @@ export default function AnalyticsAssistant() {
                                       </div>
                                     )}
                                     
-                                    {!message.data.sql && !message.data.sql_queries && !message.data.visualization?.code && !message.data.visualizations?.some((v: any) => v.code) && (
+                                    {/* Simulation parsed params for SIMULATE questions */}
+                                    {message.data.question_type === 'SIMULATE' && message.data.parsed_params && (
+                                      <div>
+                                        <div className="text-sm font-medium text-teal-300 mb-2">Parsed Simulation Parameters</div>
+                                        <CodeBlock code={JSON.stringify(message.data.parsed_params, null, 2)} language="json" />
+                                      </div>
+                                    )}
+
+                                    {!message.data.sql && !message.data.sql_queries && !message.data.visualization?.code && !message.data.visualizations?.some((v: any) => v.code) && message.data.question_type !== 'SIMULATE' && (
                                       <div className="text-xs text-gray-500">No code available</div>
                                     )}
                                   </div>
@@ -812,17 +1009,142 @@ export default function AnalyticsAssistant() {
                               },
                               {
                                 label: 'Stats',
-                                content: message.data.question_type === 'WHY' ? (
+                                content: message.data.question_type === 'SIMULATE' ? (
+                                  <div className="space-y-4">
+                                    {/* Model performance */}
+                                    {message.data.model_performance && (
+                                      <div className="bg-gradient-to-br from-teal-900/20 to-cyan-900/20 rounded-lg p-4 border border-teal-500/30">
+                                        <div className="text-sm font-semibold text-teal-300 mb-3">Model Performance</div>
+                                        <div className="grid grid-cols-2 gap-3 text-xs">
+                                          {Object.entries(message.data.model_performance).map(([k, v]: [string, any]) => (
+                                            <div key={k} className="flex justify-between bg-gray-900/40 rounded px-3 py-2">
+                                              <span className="text-gray-400 capitalize">{k.replace(/_/g, ' ')}</span>
+                                              <span className="text-white font-mono">{typeof v === 'number' ? v.toFixed(4) : String(v)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="mt-2 text-[10px] text-gray-500">
+                                          Model: {message.data.model_name === 'employee_attrition_predictor' ? 'Random Forest · Attrition Predictor' : message.data.model_name === 'sales_revenue_predictor' ? 'Gradient Boosting · Revenue Predictor' : (message.data.model_name ?? 'N/A')} | Type: {message.data.model_type ?? 'N/A'} | Records: {message.data.n_records_analyzed ?? 'N/A'}{message.data.model_performance?.accuracy != null ? ` | Accuracy: ${(message.data.model_performance.accuracy * 100).toFixed(1)}%` : message.data.model_performance?.r2 != null ? ` | Accuracy: R²=${message.data.model_performance.r2.toFixed(3)}` : ''}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Comparison table */}
+                                    {message.data.comparison_table && message.data.comparison_table.length > 0 && (
+                                      <div>
+                                        <div className="text-sm font-semibold text-teal-300 mb-2">Scenario Comparison</div>
+                                        <div className="overflow-x-auto">
+                                          <table className="min-w-full text-xs border-collapse">
+                                            <thead>
+                                              <tr className="border-b border-gray-700">
+                                                {Object.keys(message.data.comparison_table[0]).filter(k => k !== 'Attrition Rate (raw)').map(k => (
+                                                  <th key={k} className="px-3 py-2 text-left font-medium text-gray-400 whitespace-nowrap">{k}</th>
+                                                ))}
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {message.data.comparison_table.map((row: any, i: number) => (
+                                                <tr key={i} className="border-b border-gray-800">
+                                                  {Object.entries(row).filter(([k]) => k !== 'Attrition Rate (raw)').map(([k, v]: [string, any], j: number) => (
+                                                    <td key={j} className={`px-3 py-2 whitespace-nowrap font-mono ${
+                                                      k === 'Scenario' ? 'text-cyan-300 font-semibold' :
+                                                      k === 'Attrition Rate' && i > 0 && parseFloat(String(v)) < parseFloat(String(message.data.comparison_table[0][k])) ? 'text-green-400' :
+                                                      k === 'Attrition Rate' && i > 0 ? 'text-red-400' : 'text-gray-200'
+                                                    }`}>{String(v)}</td>
+                                                  ))}
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Delta summary */}
+                                    {message.data.delta && (
+                                      <div className="bg-gray-900/40 rounded-lg p-3 text-xs space-y-1">
+                                        <div className="text-sm font-semibold text-gray-300 mb-2">Delta Summary</div>
+                                        {Object.entries(message.data.delta).map(([k, v]: [string, any]) => (
+                                          <div key={k} className="flex justify-between">
+                                            <span className="text-gray-400">{k.replace(/_/g, ' ')}</span>
+                                            <span className={`font-mono ${
+                                              (k.includes('change') && typeof v === 'number' && v <= 0) || (k === 'employees_saved' && typeof v === 'number' && v >= 0) ? 'text-green-400' : 'text-red-400'
+                                            }`}>{typeof v === 'number' ? (k.includes('rate') ? `${(v * 100).toFixed(2)} pp` : v) : String(v)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : message.data.question_type === 'WHY' ? (
                                   message.data.statistical_results?.error ? (
                                     <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
                                       <div className="text-sm font-medium text-red-400 mb-2">Statistical Testing Error</div>
                                       <div className="text-xs text-red-300">{message.data.statistical_results.error}</div>
                                     </div>
                                   ) : message.data.statistical_results?.hypothesis_results && message.data.statistical_results.hypothesis_results.length > 0 ? (
-                                  <div className="bg-gray-900/30 rounded-lg p-4">
-                                    <div className="text-sm font-medium text-gray-300 mb-3">Stats Summary</div>
-                                    <div className="space-y-4 text-xs text-gray-400 font-mono">
-                                      {message.data.statistical_results.hypothesis_results.map((result: any, idx: number) => {
+                                  <div className="space-y-4">
+                                    {/* LLM Interpretation Section */}
+                                    {message.data.statistical_results.llm_interpretation && !message.data.statistical_results.llm_interpretation.error && (
+                                      <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-blue-500/30 rounded-lg p-4 max-h-96 overflow-auto" style={{maxWidth: '100%'}}>
+                                        <div className="text-base font-semibold text-blue-300 mb-3 flex items-center sticky top-0 left-0 bg-gradient-to-br from-blue-900/30 to-purple-900/30 pb-2 z-10">
+                                          <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                          </svg>
+                                          Key Insights
+                                        </div>
+                                        <div style={{minWidth: 'max-content'}}>
+                                          {/* Overall Summary */}
+                                          <div className="mb-3 text-sm text-gray-200 leading-relaxed bg-gray-900/40 rounded-lg p-3 whitespace-normal" style={{maxWidth: '800px'}}>
+                                            {message.data.statistical_results.llm_interpretation.overall_summary}
+                                          </div>
+                                          
+                                          {/* Key Takeaways */}
+                                          {message.data.statistical_results.llm_interpretation.key_takeaways && message.data.statistical_results.llm_interpretation.key_takeaways.length > 0 && (
+                                            <div className="mb-3" style={{maxWidth: '800px'}}>
+                                              <div className="text-xs font-medium text-green-300 mb-2">📌 Key Takeaways</div>
+                                              <ul className="space-y-1.5">
+                                                {message.data.statistical_results.llm_interpretation.key_takeaways.map((takeaway: string, idx: number) => (
+                                                  <li key={idx} className="flex items-start text-xs text-gray-300">
+                                                    <span className="text-green-400 mr-2 flex-shrink-0">•</span>
+                                                    <span className="whitespace-normal">{takeaway}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                          
+                                          {/* Hypothesis Interpretations */}
+                                          {message.data.statistical_results.llm_interpretation.hypothesis_interpretations && message.data.statistical_results.llm_interpretation.hypothesis_interpretations.length > 0 && (
+                                            <div className="space-y-2">
+                                              {message.data.statistical_results.llm_interpretation.hypothesis_interpretations.map((interp: any, idx: number) => (
+                                                <div key={idx} className="bg-gray-900/40 rounded-lg p-3 border-l-2 border-blue-500/50 whitespace-normal" style={{maxWidth: '800px'}}>
+                                                  <div className="text-xs font-semibold text-blue-300 mb-1">Hypothesis {interp.hypothesis_id}</div>
+                                                  <div className="text-xs text-gray-200 mb-1.5">{interp.finding}</div>
+                                                  <div className="text-xs text-gray-400 mb-1.5">{interp.plain_english}</div>
+                                                  <div className="text-xs text-purple-300 mb-1">
+                                                    <span className="font-medium">💡</span> {interp.business_insight}
+                                                  </div>
+                                                  <div className="text-xs text-green-300">
+                                                    <span className="font-medium">✅</span> {interp.recommendation}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Limitations */}
+                                          {message.data.statistical_results.llm_interpretation.limitations && (
+                                            <div className="mt-3 text-xs text-gray-500 italic border-t border-gray-700 pt-2 whitespace-normal" style={{maxWidth: '800px'}}>
+                                              ⚠️ {message.data.statistical_results.llm_interpretation.limitations}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Technical Stats Details */}
+                                    <div className="bg-gray-900/30 rounded-lg p-4">
+                                      <div className="text-sm font-medium text-gray-300 mb-3">Technical Statistical Details</div>
+                                      <div className="space-y-4 text-xs text-gray-400 font-mono">
+                                        {message.data.statistical_results.hypothesis_results.map((result: any, idx: number) => {
                                         const stats = result.statistical_results;
                                         const isSignificant = stats?.p_value < 0.05;
                                         
@@ -875,6 +1197,7 @@ export default function AnalyticsAssistant() {
                                         );
                                       })}
                                     </div>
+                                  </div>
                                   </div>
                                   ) : (
                                     <div className="bg-gray-900/30 rounded-lg p-4">

@@ -18,6 +18,7 @@ from app.services.text_to_sql_agent import text_to_sql_agent, get_database_conne
 from app.services.visualization_agent import visualization_agent
 from app.services.hypothesis_agent import hypothesis_agent
 from app.services.stats_agent import stats_agent
+from app.services.simulation_agent import simulation_agent
 
 
 async def process_question(
@@ -71,11 +72,18 @@ async def process_question(
             return await _handle_what_question(
                 question, llm, include_viz, verbose, planner_decision
             )
+        elif question_type == 'SIMULATE':
+            dataset = planner_decision.get('dataset', 'auto')
+            if dataset == 'auto':
+                dataset = 'hr_data'  # sensible default
+            return await _handle_simulate_question(
+                question, llm, dataset, verbose, planner_decision
+            )
         else:  # WHY question
             return await _handle_why_question(
                 question, llm, num_hypotheses, include_viz, verbose, planner_decision
             )
-    
+
     except Exception as e:
         return {
             "success": False,
@@ -316,14 +324,22 @@ async def _handle_why_question(
         if verbose:
             print("[INFO] Running statistical tests...")
         
-        stats_result = await stats_agent(hypotheses_result)
+        stats_result = await stats_agent(
+            hypotheses_result, 
+            llm=llm, 
+            original_question=question
+        )
         
         if "error" in stats_result:
             if verbose:
                 print(f"[WARNING] Statistical testing failed: {stats_result['error']}\n")
         else:
             if verbose:
-                print(f"[SUCCESS] Completed {stats_result['summary']['total_hypotheses']} statistical tests\n")
+                print(f"[SUCCESS] Completed {stats_result['summary']['total_hypotheses']} statistical tests")
+                if "llm_interpretation" in stats_result:
+                    print("[SUCCESS] Generated LLM interpretation of results\n")
+                else:
+                    print()
         
         # Return combined results with all visualizations
         return {
@@ -352,6 +368,40 @@ async def _handle_why_question(
             "question_type": "WHY",
             "error": f"WHY question processing failed: {str(e)}",
             "planner_decision": planner_decision
+        }
+
+
+async def _handle_simulate_question(
+    question: str,
+    llm: AzureChatOpenAI,
+    dataset: str,
+    verbose: bool,
+    planner_decision: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Handle SIMULATE questions (Predictive / What-If Analytics)."""
+    if verbose:
+        print("[INFO] Routing to SIMULATION AGENT")
+
+    try:
+        sim_result = await simulation_agent(
+            question=question,
+            llm=llm,
+            dataset=dataset,
+            verbose=verbose,
+        )
+
+        sim_result["question_type"] = "SIMULATE"
+        sim_result["analysis_type"] = "predictive_analytics"
+        sim_result["planner_decision"] = planner_decision
+        return sim_result
+
+    except Exception as e:
+        return {
+            "success": False,
+            "question": question,
+            "question_type": "SIMULATE",
+            "error": f"Simulation failed: {str(e)}",
+            "planner_decision": planner_decision,
         }
 
 

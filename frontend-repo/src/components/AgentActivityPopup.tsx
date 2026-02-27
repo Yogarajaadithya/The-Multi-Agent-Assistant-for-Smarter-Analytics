@@ -7,6 +7,9 @@ interface LogEntry {
   level: string;
   message: string;
   agent?: string;
+  duration?: number; // Duration in milliseconds
+  details?: string; // Additional error details or context
+  stackTrace?: string; // Stack trace for errors
 }
 
 interface Props {
@@ -22,6 +25,9 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
   const [filterAgent, setFilterAgent] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showStats, setShowStats] = useState(true);
+  const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
+  const [groupByAgent, setGroupByAgent] = useState(false);
+  const [showTimings, setShowTimings] = useState(true);
 
   useEffect(() => {
     if (logsEndRef.current) {
@@ -41,8 +47,25 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
         return 'text-red-400';
       case 'debug':
         return 'text-purple-400';
+      case 'critical':
+        return 'text-red-600';
       default:
         return 'text-gray-400';
+    }
+  };
+
+  const getLogBgColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'error':
+        return 'bg-red-500/10 border-red-500/30';
+      case 'warning':
+        return 'bg-yellow-500/10 border-yellow-500/30';
+      case 'success':
+        return 'bg-green-500/10 border-green-500/30';
+      case 'critical':
+        return 'bg-red-600/20 border-red-600/50';
+      default:
+        return 'border-transparent';
     }
   };
 
@@ -95,8 +118,93 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
 
   // Calculate performance metrics
   const avgLogsPerAgent = uniqueAgents.length > 0 ? (logs.filter(l => l.agent).length / uniqueAgents.length).toFixed(1) : '0';
-  const errorCount = logs.filter(l => l.level.toLowerCase() === 'error').length;
+  const errorCount = logs.filter(l => l.level.toLowerCase() === 'error' || l.level.toLowerCase() === 'critical').length;
   const warningCount = logs.filter(l => l.level.toLowerCase() === 'warning').length;
+  const successCount = logs.filter(l => l.level.toLowerCase() === 'success').length;
+  
+  // Better success rate: (agents with successes / total unique agents) * 100
+  // This shows what % of agents completed successfully
+  const agentsWithSuccess = new Set(
+    logs.filter(l => l.agent && l.level.toLowerCase() === 'success').map(l => l.agent)
+  ).size;
+  const successRate = uniqueAgents.length > 0 ? ((agentsWithSuccess / uniqueAgents.length) * 100).toFixed(1) : '0';
+  
+  // Query success: Did we have any errors?
+  const querySucceeded = errorCount === 0;
+  const queryStatus = querySucceeded ? 'SUCCESS' : 'FAILED';
+  
+  // Calculate average duration per agent
+  const agentDurations = logs
+    .filter(l => l.agent && l.duration)
+    .reduce((acc, log) => {
+      if (!acc[log.agent!]) acc[log.agent!] = [];
+      acc[log.agent!].push(log.duration!);
+      return acc;
+    }, {} as Record<string, number[]>);
+  
+  const avgAgentDuration = Object.entries(agentDurations).map(([agent, durations]) => ({
+    agent,
+    avgDuration: (durations.reduce((a, b) => a + b, 0) / durations.length / 1000).toFixed(2)
+  }));
+
+  // Get error logs with details
+  const errorLogs = logs.filter(l => l.level.toLowerCase() === 'error' || l.level.toLowerCase() === 'critical');
+  
+  // Calculate total query time from all operations with duration
+  let totalQueryTime = logs
+    .filter(l => l.duration)
+    .reduce((sum, log) => sum + (log.duration || 0), 0);
+  
+  // Fallback: If no duration data, calculate from first to last log timestamp
+  if (totalQueryTime === 0 && logs.length > 1) {
+    try {
+      const parseTime = (timestamp: string) => {
+        // Remove AM/PM and split
+        const cleanTime = timestamp.replace(/\s*(AM|PM|am|pm)\s*$/i, '').trim();
+        const parts = cleanTime.split(':');
+        
+        if (parts.length >= 3) {
+          const hours = parseInt(parts[0], 10);
+          const minutes = parseInt(parts[1], 10);
+          const seconds = parseInt(parts[2], 10);
+          return hours * 3600 + minutes * 60 + seconds;
+        }
+        return 0;
+      };
+      
+      const firstTime = parseTime(logs[0].timestamp);
+      const lastTime = parseTime(logs[logs.length - 1].timestamp);
+      const diffSeconds = lastTime - firstTime;
+      
+      // Only use if we got a valid positive difference
+      if (diffSeconds > 0) {
+        totalQueryTime = diffSeconds * 1000; // Convert to milliseconds
+      }
+    } catch (e) {
+      totalQueryTime = 0;
+    }
+  }
+  
+  const queryTimeSeconds = totalQueryTime > 0 ? (totalQueryTime / 1000).toFixed(2) : '--';
+  
+  // Toggle error expansion
+  const toggleErrorExpansion = (index: number) => {
+    const newExpanded = new Set(expandedErrors);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedErrors(newExpanded);
+  };
+
+  // Group logs by agent
+  const groupedLogs = groupByAgent
+    ? uniqueAgents.map(agent => ({
+        agent,
+        logs: filteredLogs.filter(l => l.agent === agent)
+      }))
+    : null;
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -150,16 +258,36 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                         <p className="text-sm text-gray-300 mt-1 flex items-center gap-2">
                           {isProcessing ? (
                             <><span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span> Processing your query...</>
+                          ) : errorCount > 0 ? (
+                            <><span className="inline-block w-2 h-2 bg-red-400 rounded-full"></span> Query completed with {errorCount} error{errorCount > 1 ? 's' : ''}</>
                           ) : (
-                            <><span className="inline-block w-2 h-2 bg-cyan-400 rounded-full"></span> Ready for next query</>
+                            <><span className="inline-block w-2 h-2 bg-green-400 rounded-full"></span> Query completed successfully</>
                           )}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => setGroupByAgent(!groupByAgent)}
+                        className={`p-2 rounded-lg transition-colors ${groupByAgent ? 'bg-cyan-500/20 text-cyan-400' : 'hover:bg-gray-700/50 text-gray-400 hover:text-cyan-400'}`}
+                        title="Group by agent"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setShowTimings(!showTimings)}
+                        className={`p-2 rounded-lg transition-colors ${showTimings ? 'bg-cyan-500/20 text-cyan-400' : 'hover:bg-gray-700/50 text-gray-400 hover:text-cyan-400'}`}
+                        title="Toggle timings"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      <button
                         onClick={() => setShowStats(!showStats)}
-                        className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-cyan-400"
+                        className={`p-2 rounded-lg transition-colors ${showStats ? 'bg-cyan-500/20 text-cyan-400' : 'hover:bg-gray-700/50 text-gray-400 hover:text-cyan-400'}`}
                         title="Toggle stats"
                       >
                         <ChartBarIcon className="w-5 h-5" />
@@ -239,6 +367,63 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                           <p className="text-sm">No logs match your filters</p>
                           <p className="text-xs mt-1">Try adjusting your search criteria</p>
                         </div>
+                      ) : groupByAgent && groupedLogs ? (
+                        // Grouped by agent view
+                        groupedLogs.map(({ agent, logs: agentLogs }) => (
+                          <div key={agent} className="mb-6">
+                            <div className="sticky top-0 bg-gradient-to-r from-gray-800 to-gray-700 px-4 py-2 rounded-lg mb-3 border border-cyan-500/30 shadow-lg z-10">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="text-2xl">{getAgentIcon(agent)}</div>
+                                  <span className="text-cyan-300 font-bold text-lg">{agent}</span>
+                                  <span className="text-gray-400 text-sm">({agentLogs.length} logs)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {agentLogs.filter(l => l.level.toLowerCase() === 'error').length > 0 && (
+                                    <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-bold border border-red-500/30">
+                                      {agentLogs.filter(l => l.level.toLowerCase() === 'error').length} errors
+                                    </span>
+                                  )}
+                                  {agentLogs.filter(l => l.level.toLowerCase() === 'success').length > 0 && (
+                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-bold border border-green-500/30">
+                                      {agentLogs.filter(l => l.level.toLowerCase() === 'success').length} success
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {agentLogs.map((log, idx) => (
+                              <div key={idx} className="relative mb-2">
+                                <div className={`flex items-start gap-4 p-3 pl-6 rounded-xl hover:bg-gradient-to-r hover:from-gray-800/40 hover:to-gray-800/20 transition-all duration-200 border ${getLogBgColor(log.level)} hover:border-cyan-500/20 group`}>
+                                  <div className="flex-shrink-0 mt-1">
+                                    <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-lg border border-gray-600/30 text-lg group-hover:scale-110 group-hover:border-cyan-400/50 transition-all duration-200">
+                                      {log.level.toLowerCase() === 'error' ? '❌' : log.level.toLowerCase() === 'warning' ? '⚠️' : log.level.toLowerCase() === 'success' ? '✅' : '📝'}
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                      <span className="text-gray-400 text-xs font-medium">{log.timestamp}</span>
+                                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${getLogColor(log.level)} border border-current/20`}>
+                                        {log.level.toUpperCase()}
+                                      </span>
+                                      {showTimings && log.duration && (
+                                        <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-bold border border-purple-500/30">
+                                          {(log.duration / 1000).toFixed(2)}s
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-gray-200 leading-relaxed break-words text-sm">{log.message}</p>
+                                    {log.details && (
+                                      <div className="mt-2 p-2 bg-gray-900/50 rounded text-xs text-gray-400 border border-gray-700">
+                                        {log.details}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))
                       ) : (
                         <>
                           {filteredLogs.map((log, index) => (
@@ -247,7 +432,7 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                               <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500/50 to-purple-500/50"></div>
                               <div className="absolute left-[-3px] top-6 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-lg shadow-cyan-400/50"></div>
                               
-                              <div className="flex items-start gap-4 p-3 pl-6 rounded-xl hover:bg-gradient-to-r hover:from-gray-800/40 hover:to-gray-800/20 transition-all duration-200 animate-fadeIn border border-transparent hover:border-cyan-500/20 group">
+                              <div className={`flex items-start gap-4 p-3 pl-6 rounded-xl hover:bg-gradient-to-r hover:from-gray-800/40 hover:to-gray-800/20 transition-all duration-200 animate-fadeIn border ${getLogBgColor(log.level)} hover:border-cyan-500/20 group`}>
                                 <div className="flex-shrink-0 mt-1">
                                   <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-lg border border-gray-600/30 text-xl group-hover:scale-110 group-hover:border-cyan-400/50 transition-all duration-200 group-hover:shadow-lg group-hover:shadow-cyan-500/20">
                                     {getAgentIcon(log.agent)}
@@ -270,11 +455,50 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                                     <span className={`px-2 py-1 rounded-md text-xs font-bold ${getLogColor(log.level)} border border-current/20 shadow-sm`}>
                                       {log.level.toUpperCase()}
                                     </span>
+                                    {showTimings && log.duration && (
+                                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-bold border border-purple-500/30">
+                                        ⏱️ {(log.duration / 1000).toFixed(2)}s
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-start justify-between gap-3">
-                                    <p className="text-gray-200 leading-relaxed break-words text-sm flex-1">
-                                      {log.message}
-                                    </p>
+                                    <div className="flex-1">
+                                      <p className="text-gray-200 leading-relaxed break-words text-sm">
+                                        {log.message}
+                                      </p>
+                                      {(log.level.toLowerCase() === 'error' || log.level.toLowerCase() === 'critical') && (log.details || log.stackTrace) && (
+                                        <div className="mt-2">
+                                          <button
+                                            onClick={() => toggleErrorExpansion(index)}
+                                            className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+                                          >
+                                            {expandedErrors.has(index) ? (
+                                              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg> Hide Details</>
+                                            ) : (
+                                              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg> Show Details</>
+                                            )}
+                                          </button>
+                                          {expandedErrors.has(index) && (
+                                            <div className="mt-2 p-3 bg-red-950/30 border border-red-500/30 rounded-lg">
+                                              {log.details && (
+                                                <div className="mb-2">
+                                                  <div className="text-xs text-red-300 font-bold mb-1">Error Details:</div>
+                                                  <div className="text-xs text-gray-300 font-mono bg-black/30 p-2 rounded">{log.details}</div>
+                                                </div>
+                                              )}
+                                              {log.stackTrace && (
+                                                <div>
+                                                  <div className="text-xs text-red-300 font-bold mb-1">Stack Trace:</div>
+                                                  <div className="text-xs text-gray-400 font-mono bg-black/30 p-2 rounded max-h-32 overflow-y-auto">
+                                                    {log.stackTrace}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                     <button 
                                       onClick={() => navigator.clipboard.writeText(log.message)}
                                       className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-gray-700/50 rounded-md text-gray-400 hover:text-cyan-400"
@@ -318,12 +542,12 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                   {logs.length > 0 && showStats && (
                     <div className="mt-6 space-y-4">
                       {/* Quick Stats Bar */}
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-5 gap-3">
                         <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3">
                           <div className="text-xs text-gray-400 mb-1">Avg/Agent</div>
                           <div className="text-xl font-bold text-cyan-400">{avgLogsPerAgent}</div>
                         </div>
-                        <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3">
+                        <div className="bg-gray-800/40 border border-red-900/20 border-gray-700/50 rounded-lg p-3">
                           <div className="text-xs text-gray-400 mb-1">Errors</div>
                           <div className="text-xl font-bold text-red-400">{errorCount}</div>
                         </div>
@@ -332,10 +556,63 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                           <div className="text-xl font-bold text-yellow-400">{warningCount}</div>
                         </div>
                         <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3">
-                          <div className="text-xs text-gray-400 mb-1">Filtered</div>
-                          <div className="text-xl font-bold text-purple-400">{filteredLogs.length}/{logs.length}</div>
+                          <div className="text-xs text-gray-400 mb-1" title="% of agents that completed successfully">Agent Success</div>
+                          <div className="text-xl font-bold text-green-400">{successRate}%</div>
+                        </div>
+                        <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3">
+                          <div className="text-xs text-gray-400 mb-1" title="Total time to process query">Query Time</div>
+                          <div className="text-xl font-bold text-purple-400">{queryTimeSeconds}s</div>
                         </div>
                       </div>
+                      
+                      {/* Agent Performance Timings */}
+                      {avgAgentDuration.length > 0 && showTimings && (
+                        <div className="mt-4">
+                          <div className="text-sm font-bold text-gray-300 mb-2 flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Average Agent Duration
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {avgAgentDuration.map(({ agent, avgDuration }) => (
+                              <div key={agent} className="bg-gray-800/40 border border-purple-500/20 rounded-lg p-2">
+                                <div className="text-xs text-gray-400 flex items-center gap-1">
+                                  <span>{getAgentIcon(agent)}</span>
+                                  <span>{agent}</span>
+                                </div>
+                                <div className="text-lg font-bold text-purple-400">{avgDuration}s</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Error Summary Section */}
+                      {errorLogs.length > 0 && (
+                        <div className="mt-4">
+                          <div className="text-sm font-bold text-red-400 mb-2 flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            Recent Errors ({errorLogs.length})
+                          </div>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {errorLogs.slice(0, 5).map((log, idx) => (
+                              <div key={idx} className="bg-red-950/20 border border-red-500/30 rounded-lg p-2">
+                                <div className="flex items-start gap-2">
+                                  <span className="text-red-400 text-lg">❌</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-gray-400">{log.timestamp}</div>
+                                    <div className="text-xs text-red-300 font-medium mt-1">{log.agent || 'System'}</div>
+                                    <div className="text-xs text-gray-300 mt-1 break-words">{log.message}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -373,11 +650,14 @@ export default function AgentActivityPopup({ isOpen, onClose, logs, isProcessing
                             <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
                           </svg>
                         </div>
-                        <div className="text-xs text-purple-300 font-bold mb-2 tracking-wide flex items-center gap-1">
+                        <div className="text-xs text-purple-300 font-bold mb-2 tracking-wide flex items-center gap-1" title="Includes System orchestrator + main agents">
                           🤖 AGENTS USED
                         </div>
                         <div className="text-3xl font-bold bg-gradient-to-br from-purple-300 to-purple-500 bg-clip-text text-transparent relative z-10">
                           {new Set(logs.filter(l => l.agent).map(l => l.agent)).size}
+                        </div>
+                        <div className="text-[10px] text-purple-400/60 mt-1">
+                          {uniqueAgents.filter(a => a !== 'System').length} core + orchestrator
                         </div>
                       </div>
                     </div>

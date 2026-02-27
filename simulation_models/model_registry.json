@@ -1,0 +1,16 @@
+{
+  "models": {
+    "employee_attrition_predictor": {
+      "latest_version": "v1",
+      "config_path": "simulation_models\\attrition_predictor\\config.json",
+      "type": "classification",
+      "dataset": "hr_data"
+    },
+    "sales_revenue_predictor": {
+      "latest_version": "v1",
+      "config_path": "simulation_models\\sales_revenue_predictor\\config.json",
+      "type": "regression",
+      "dataset": "sales_data"
+    }
+  }
+}

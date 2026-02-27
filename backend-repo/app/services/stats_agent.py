@@ -7,9 +7,11 @@ Author: Yogarajaadithya
 Date: November 19, 2025
 """
 
+import json
 import pandas as pd
 import logging
 from typing import Dict, Any
+from langchain_core.prompts import PromptTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -22,31 +24,39 @@ from app.utils.stats_utils import (
     spearman_correlation
 )
 from app.services.dataset_manager import get_dataset_manager
+from app.prompts.prompts import stats_agent_prompt
 
 
-async def stats_agent(hypotheses_result: Dict[str, Any], df: pd.DataFrame = None) -> Dict[str, Any]:
+async def stats_agent(
+    hypotheses_result: Dict[str, Any],
+    df: pd.DataFrame = None,
+    llm = None,
+    original_question: str = ""
+) -> Dict[str, Any]:
     """
     Statistical Testing Agent - Executes statistical tests for hypotheses.
     
     Performs appropriate statistical tests based on variable types in each hypothesis
-    and returns comprehensive test results with interpretations.
+    and returns comprehensive test results with LLM-generated interpretations.
     
     Args:
         hypotheses_result (dict): Result from hypothesis_agent containing:
             - hypotheses: List of hypothesis objects
         df (pandas.DataFrame): Optional DataFrame to test on (loads from DB if None)
+        llm: Optional language model for generating user-friendly interpretations
+        original_question (str): Original user question for context in interpretation
     
     Returns:
         dict: Statistical test results containing:
             - summary: Overview with total hypotheses and dataset info
             - hypothesis_results: List of test results for each hypothesis
+            - llm_interpretation: User-friendly interpretation (if LLM provided)
             - error: Error message if testing failed
     
     Example:
         >>> hypotheses = await hypothesis_agent("Why do employees leave?", llm)
-        >>> results = await stats_agent(hypotheses)
-        >>> for r in results['hypothesis_results']:
-        ...     print(r['statistical_results']['interpretation'])
+        >>> results = await stats_agent(hypotheses, llm=llm, original_question="Why do employees leave?")
+        >>> print(results['llm_interpretation']['overall_summary'])
     """
     try:
         # Load data if not provided
@@ -80,6 +90,21 @@ async def stats_agent(hypotheses_result: Dict[str, Any], df: pd.DataFrame = None
             result = _execute_hypothesis_test(hypothesis, df)
             all_results["hypothesis_results"].append(result)
         
+        # Generate LLM interpretation if LLM is provided
+        if llm is not None:
+            try:
+                interpretation = await _generate_llm_interpretation(
+                    all_results, 
+                    llm, 
+                    original_question
+                )
+                all_results["llm_interpretation"] = interpretation
+            except Exception as interp_err:
+                logger.warning(f"LLM interpretation failed: {str(interp_err)}")
+                all_results["llm_interpretation"] = {
+                    "error": f"Interpretation generation failed: {str(interp_err)}"
+                }
+        
         return all_results
     
     except Exception as err:
@@ -89,6 +114,65 @@ async def stats_agent(hypotheses_result: Dict[str, Any], df: pd.DataFrame = None
             "error": error_msg,
             "summary": {"total_hypotheses": 0, "dataset_shape": [0, 0]},
             "hypothesis_results": []
+        }
+
+
+async def _generate_llm_interpretation(
+    stats_results: Dict[str, Any],
+    llm,
+    original_question: str
+) -> Dict[str, Any]:
+    """
+    Generate user-friendly interpretation of statistical results using LLM.
+    
+    Args:
+        stats_results: Raw statistical test results
+        llm: Language model instance
+        original_question: Original user question for context
+    
+    Returns:
+        dict: LLM-generated interpretation with insights and recommendations
+    """
+    # Format stats results for the prompt
+    formatted_results = json.dumps(stats_results, indent=2, default=str)
+    
+    # Create prompt from template
+    interpretation_prompt = PromptTemplate.from_template(stats_agent_prompt)
+    
+    # Create chain
+    chain = interpretation_prompt | llm
+    
+    # Generate interpretation
+    response = await chain.ainvoke({
+        "original_question": original_question or "Analyze the factors affecting the outcome",
+        "stats_results": formatted_results
+    })
+    
+    # Extract response content
+    response_text = response.content if hasattr(response, 'content') else str(response)
+    
+    # Parse JSON from response
+    try:
+        # Try to extract JSON from response
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            interpretation = json.loads(json_match.group())
+            return interpretation
+        else:
+            # Return as plain text if JSON parsing fails
+            return {
+                "overall_summary": response_text,
+                "hypothesis_interpretations": [],
+                "key_takeaways": [],
+                "limitations": "Could not parse structured response"
+            }
+    except json.JSONDecodeError:
+        return {
+            "overall_summary": response_text,
+            "hypothesis_interpretations": [],
+            "key_takeaways": [],
+            "limitations": "Could not parse structured response"
         }
 
 

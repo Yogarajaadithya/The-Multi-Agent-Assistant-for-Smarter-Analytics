@@ -15,7 +15,12 @@ langchain-openai>=0.0.5
 
 # Data & Visualization
 pandas>=2.0.0
+numpy>=1.24.0
 plotly>=5.18.0
+
+# ML (Simulation Agent)
+scikit-learn>=1.3.0
+joblib>=1.3.0
 
 # Utilities
 kaleido>=0.2.1
